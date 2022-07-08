@@ -1,2 +1,2 @@
 # PolarisEngine
-Game engine largely based on [Piccolo](https://github.com/BoomingTech/Piccolo)
+Game engine largely inspired by [Piccolo](https://github.com/BoomingTech/Piccolo)
