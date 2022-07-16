@@ -128,17 +128,17 @@ namespace Polaris
 		// Efficient function pointers
 		PFN_vkSetDebugUtilsObjectNameEXT m_pfn_vkSetDebugUtilsObjectNameEXT{ nullptr };
 
-		// Command pools and command buffers
+		// Command pools, command buffers and sychronization objects
 		VkCommandPool					m_commandPool{ VK_NULL_HANDLE };
 		std::vector<VkCommandBuffer>	m_commandBuffers{};
+		std::vector<VkSemaphore>		m_imageAvaliableForRenderSemaphore{};
+		std::vector<VkSemaphore>		m_imageRenderFinishedForPresentSemaphores{};
+		std::vector<VkFence>			m_imageInFlightFences{};
+		uint8_t							m_maxFrameInFlight{ 3 };
+		uint8_t							m_currentFrameIndex{ 0 };
 
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool{ VK_NULL_HANDLE };
-
-		// Synchronization objects
-		std::vector<VkSemaphore>          m_imageAvaliableForRenderSemaphore{};
-		std::vector<VkSemaphore>          m_imageRenderFinishedForPresentSemaphores{};
-		std::vector<VkFence>              m_imageInFlightFences{};
 
 		// Swapchain fields
 		VkSwapchainKHR           m_swapchain{ VK_NULL_HANDLE };
@@ -177,10 +177,7 @@ namespace Polaris
 		VkPhysicalDeviceFeatures2			m_physicalFeaturesStructChain{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 		VkPhysicalDeviceFeatures			m_features10{};
 		VkPhysicalDeviceVulkan11Features	m_features11{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-		VkPhysicalDeviceVulkan12Features	m_features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-
-		// Command buffer number
-		uint8_t	m_maxFrameInFlight{ 3 };
+		VkPhysicalDeviceVulkan12Features	m_features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };		
 
 		// Descriptor pool settings
 		uint32_t m_maxVertexBlendingMeshCount{ 256 };

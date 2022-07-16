@@ -1,6 +1,4 @@
-#version 310 es
-
-#extension GL_GOOGLE_include_directive : enable
+#version 450
 
 #include "structures.h"
 

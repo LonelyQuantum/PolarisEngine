@@ -77,7 +77,8 @@ namespace Polaris
         constructStructChain(); // Construct the struct chain for physical device features  
 
         // Command buffer setting
-        m_maxFrameInFlight = 3;
+        m_maxFrameInFlight  = 3;
+        m_currentFrameIndex = 0;
 
         // Descriptor pool settings
         m_maxVertexBlendingMeshCount    = 256;
