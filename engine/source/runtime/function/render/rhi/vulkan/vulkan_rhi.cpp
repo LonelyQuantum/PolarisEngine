@@ -91,8 +91,8 @@ namespace Polaris
         createLogicalDevice();
         initializeCommandPools();
         initializeCommandBuffers();
-        createDescriptorPools();
         createSyncObjects();
+        createDescriptorPools();
         createSwapchain();
         createSwapchainImageViews();
         createFramebufferImageResources();
@@ -152,7 +152,6 @@ namespace Polaris
         {
             throw std::runtime_error("failed to create instance!");
         }
-
     }
 
     /*
@@ -393,6 +392,7 @@ namespace Polaris
         {
             imageCount = swapchainSupport.capabilities.maxImageCount;
         }
+        imageCount = imageCount <= m_maxFrameInFlight ? imageCount : m_maxFrameInFlight;
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;

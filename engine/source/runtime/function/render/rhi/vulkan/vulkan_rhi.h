@@ -115,7 +115,7 @@ namespace Polaris
 		VkDevice			m_device{ VK_NULL_HANDLE };
 
 		// Additional components
-		VkAllocationCallbacks*		m_defaultAllocator{ VK_NULL_HANDLE };
+		VkAllocationCallbacks*		m_defaultAllocator{ nullptr };
 		VkDebugUtilsMessengerEXT	m_debugMessenger{ VK_NULL_HANDLE };
 
 		// Queue families and queues
