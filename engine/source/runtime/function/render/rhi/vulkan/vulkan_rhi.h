@@ -147,7 +147,6 @@ namespace Polaris
 		std::vector<VkImage>     m_swapchainImages;
 		std::vector<VkImageView> m_swapchainImageViews;
 		VkRect2D				 m_scissor;
-		uint32_t				 m_swapchainImageCount;
 
 		VkFormat		m_depthFormat{ VK_FORMAT_UNDEFINED };
 		VkImage			m_depthImage{ VK_NULL_HANDLE };

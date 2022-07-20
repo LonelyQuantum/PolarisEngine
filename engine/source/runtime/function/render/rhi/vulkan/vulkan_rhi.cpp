@@ -381,23 +381,23 @@ namespace Polaris
 
     void VulkanRHI::createSwapchain()
     {
+        uint32_t imageCount;
         // Query supports of this physical device and surface and choose format, present mode and extent
         SwapChainSupportDetails swapchainSupport = querySwapChainSupport(m_physicalDevice, m_surface);
         VkSurfaceFormatKHR surfaceFormat = chooseSwapchainSurfaceFormat(swapchainSupport.formats);
         VkPresentModeKHR presentMode = chooseSwapchainPresentMode(swapchainSupport.presentModes);
         VkExtent2D extent = chooseSwapchainExtent(swapchainSupport.capabilities);
 
-        m_swapchainImageCount = swapchainSupport.capabilities.minImageCount + 1;
-        if (swapchainSupport.capabilities.maxImageCount > 0 && m_swapchainImageCount > swapchainSupport.capabilities.maxImageCount)
+        imageCount = swapchainSupport.capabilities.minImageCount + 1;
+        if (swapchainSupport.capabilities.maxImageCount > 0 && imageCount > swapchainSupport.capabilities.maxImageCount)
         {
-            m_swapchainImageCount = swapchainSupport.capabilities.maxImageCount;
+            imageCount = swapchainSupport.capabilities.maxImageCount;
         }
-        m_swapchainImageCount = m_swapchainImageCount <= m_maxFrameInFlight ? m_swapchainImageCount : m_maxFrameInFlight;
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         createInfo.surface          = m_surface;
-        createInfo.minImageCount    = m_swapchainImageCount;
+        createInfo.minImageCount    = imageCount;
         createInfo.imageFormat      = surfaceFormat.format;
         createInfo.imageColorSpace  = surfaceFormat.colorSpace;
         createInfo.imageExtent      = extent;
@@ -427,11 +427,11 @@ namespace Polaris
             throw std::runtime_error("failed to create swapchain!");
         }
 
-        vkGetSwapchainImagesKHR(m_device, m_swapchain, &m_swapchainImageCount, nullptr);
-        m_swapchainImages.resize(m_swapchainImageCount);
-        vkGetSwapchainImagesKHR(m_device, m_swapchain, &m_swapchainImageCount, m_swapchainImages.data());
+        vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, nullptr);
+        m_swapchainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, m_swapchainImages.data());
 
-        for (int i = 0; i < m_swapchainImageCount; ++i)
+        for (int i = 0; i < m_swapchainImages.size(); ++i)
         {
             setObjectName(m_swapchainImages[i], "Swapchain Image [" + std::to_string(i) + "]");
         }
@@ -444,9 +444,9 @@ namespace Polaris
 
     void VulkanRHI::createSwapchainImageViews()
     {
-        m_swapchainImageViews.resize(m_swapchainImageCount);
+        m_swapchainImageViews.resize(m_swapchainImages.size());
         // create imageview (one for each this time) for all swapchain images
-        for (size_t i = 0; i < m_swapchainImageCount; i++)
+        for (size_t i = 0; i < m_swapchainImages.size(); i++)
         {
             m_swapchainImageViews[i] = VulkanUtil::createImageView(m_device,
                                                                    m_swapchainImages[i],
