@@ -55,7 +55,16 @@ namespace Polaris
 
         // Instance extensions
         m_instanceExtensions = {};
-        VulkanUtil::addGLFWRequiredExtensions(m_instanceExtensions);
+
+        // GLFW extensions
+        uint32_t count{ 0 };
+        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
+        for (int extId = 0; extId < count; ++extId)
+        {
+            m_instanceExtensions.push_back(glfwExtensions[extId]);
+        }
+
+        // Debug extension
         if (m_enableValidationLayers)
         {
             m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -82,7 +91,7 @@ namespace Polaris
 
         // Descriptor pool settings
         m_maxVertexBlendingMeshCount    = 256;
-        m_maxMaterialCount              = 256;;
+        m_maxMaterialCount              = 256;
 
         createInstance();
         createDebugMessenger();
@@ -878,4 +887,4 @@ namespace Polaris
         throw std::runtime_error("failed to find supported format!");
     }
 
-}
+} // namespace Polaris

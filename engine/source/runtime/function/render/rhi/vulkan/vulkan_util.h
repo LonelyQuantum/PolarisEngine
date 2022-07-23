@@ -9,7 +9,6 @@ namespace Polaris
 	class VulkanUtil
 	{
 	public:
-		static void addGLFWRequiredExtensions(std::vector<const char*>& instanceExtensions);
 		static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo, 
 													 PFN_vkDebugUtilsMessengerCallbackEXT debugCallback, 
 													 bool debug = false);

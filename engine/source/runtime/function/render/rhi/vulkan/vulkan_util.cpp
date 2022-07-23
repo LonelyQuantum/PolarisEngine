@@ -6,17 +6,6 @@
 namespace Polaris
 {
     /*
-    * Add instance extension names for glfw
-    */
-    void VulkanUtil::addGLFWRequiredExtensions(std::vector<const char*>& instanceExtensions)
-    {
-        uint32_t count{ 0 };
-        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
-        for (int extId = 0; extId < count; ++extId)
-            instanceExtensions.push_back(glfwExtensions[extId]);
-    }
-
-    /*
     * Populate debug messenger according to whether it is debug mode
     */
     void VulkanUtil::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo, 

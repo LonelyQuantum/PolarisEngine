@@ -184,4 +184,4 @@ namespace Polaris
 		uint32_t m_maxMaterialCount{ 256 };
 		
 	};
-}
+} // namespace Polaris
