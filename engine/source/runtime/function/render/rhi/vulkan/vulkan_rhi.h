@@ -175,10 +175,12 @@ namespace Polaris
 		std::vector<const char*>							m_deviceExtensions{};
 
 		// Physical Device Features
-		VkPhysicalDeviceFeatures2			m_physicalFeaturesStructChain{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-		VkPhysicalDeviceFeatures			m_features10{};
-		VkPhysicalDeviceVulkan11Features	m_features11{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-		VkPhysicalDeviceVulkan12Features	m_features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };		
+		VkPhysicalDeviceFeatures2							m_physicalFeaturesStructChain{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+		VkPhysicalDeviceFeatures							m_features10{};
+		VkPhysicalDeviceVulkan11Features					m_features11{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
+		VkPhysicalDeviceVulkan12Features					m_features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };	
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR	m_accelFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR		m_rtPipelineFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
 
 		// Descriptor pool settings
 		uint32_t m_maxVertexBlendingMeshCount{ 256 };

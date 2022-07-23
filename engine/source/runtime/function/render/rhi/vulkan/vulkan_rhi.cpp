@@ -41,6 +41,33 @@ namespace Polaris
 
     void VulkanRHI::initialize(RHIInitInfo initInfo)
     {
+        
+        setup(initInfo);
+        createInstance();
+        createDebugMessenger();
+        createSurface();
+        createPhysicalDevice();
+        createLogicalDevice();
+        initializeCommandPools();
+        initializeCommandBuffers();
+        createSyncObjects();
+        createDescriptorPools();
+        createSwapchain();
+        createSwapchainImageViews();
+        createFramebufferImageResources();
+        createAssetAllocator();
+    }
+
+    /*
+    * Run every frame
+    */
+    void VulkanRHI::tick()
+    {
+
+    }
+
+    void VulkanRHI::setup(RHIInitInfo initInfo)
+    {
         //Specify vulkan api settings
         m_window = initInfo.window_system->getWindow();
         m_apiMajor = 1;
@@ -72,10 +99,8 @@ namespace Polaris
 
         // Device extensions and physical device features
         addDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-        addDeviceExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, &accelFeature, { "accelerationStructure" });
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
-        addDeviceExtension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, &rtPipelineFeature, { "rayTracingPipeline" });  // To use vkCmdTraceRaysKHR
+        addDeviceExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, &m_accelFeature, { "accelerationStructure" });
+        addDeviceExtension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, &m_rtPipelineFeature, { "rayTracingPipeline" });  // To use vkCmdTraceRaysKHR
         addDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);  // Required by ray tracing pipeline
         addPhysicalDeviceFeatureRequirement(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, "samplerAnisotropy");
         addPhysicalDeviceFeatureRequirement(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, "fragmentStoresAndAtomics");  // support inefficient readback storage buffer
@@ -92,33 +117,6 @@ namespace Polaris
         // Descriptor pool settings
         m_maxVertexBlendingMeshCount = 256;
         m_maxMaterialCount = 256;
-        setup(initInfo);
-        createInstance();
-        createDebugMessenger();
-        createSurface();
-        createPhysicalDevice();
-        createLogicalDevice();
-        initializeCommandPools();
-        initializeCommandBuffers();
-        createSyncObjects();
-        createDescriptorPools();
-        createSwapchain();
-        createSwapchainImageViews();
-        createFramebufferImageResources();
-        createAssetAllocator();
-    }
-
-    /*
-    * Run every frame
-    */
-    void VulkanRHI::tick()
-    {
-
-    }
-
-    void VulkanRHI::setup(RHIInitInfo initInfo)
-    {
-        //TODO: fix bug
     }
 
     /*
