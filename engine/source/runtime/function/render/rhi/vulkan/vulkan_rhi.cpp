@@ -39,10 +39,10 @@ namespace Polaris
         vkDestroyInstance(m_instance, m_defaultAllocator);
     }
 
-    void VulkanRHI::initialize(RHIInitInfo init_info)
+    void VulkanRHI::initialize(RHIInitInfo initInfo)
     {
         //Specify vulkan api settings
-        m_window = init_info.window_system->getWindow();
+        m_window = initInfo.window_system->getWindow();
         m_apiMajor = 1;
         m_apiMinor = 2;
         m_apiVersion = VK_MAKE_API_VERSION(0, m_apiMajor, m_apiMinor, 0);
@@ -86,13 +86,13 @@ namespace Polaris
         constructStructChain(); // Construct the struct chain for physical device features  
 
         // Command buffer setting
-        m_maxFrameInFlight  = 3;
+        m_maxFrameInFlight = 3;
         m_currentFrameIndex = 0;
 
         // Descriptor pool settings
-        m_maxVertexBlendingMeshCount    = 256;
-        m_maxMaterialCount              = 256;
-
+        m_maxVertexBlendingMeshCount = 256;
+        m_maxMaterialCount = 256;
+        setup(initInfo);
         createInstance();
         createDebugMessenger();
         createSurface();
@@ -114,6 +114,11 @@ namespace Polaris
     void VulkanRHI::tick()
     {
 
+    }
+
+    void VulkanRHI::setup(RHIInitInfo initInfo)
+    {
+        //TODO: fix bug
     }
 
     /*
@@ -205,7 +210,6 @@ namespace Polaris
         vkEnumeratePhysicalDevices(m_instance, &availableDeviceCount, availableDevices.data());
 
         //Find all suitable devices	
-        constructStructChain();//Construct struct chains
         for (const VkPhysicalDevice device : availableDevices) 
         {
             if (isDeviceSuitable(device)) 
@@ -661,9 +665,6 @@ namespace Polaris
         }
     }
 
-
-
-
     /*
     * Check whether the physical device has required features and support required extensions and queue families
     */
@@ -751,8 +752,8 @@ namespace Polaris
         while (pStructChainIterator != nullptr) 
         {
             VkStructureType sType = pStructChainIterator->sType;
-            if (m_physicalDeviceFeatureRequirements.find(sType) != m_physicalDeviceFeatureRequirements.end())
-                res = res && checkDeviceFeaturesSupport(device, pStructChainIterator, m_physicalDeviceFeatureRequirements[sType]);
+            if (physicalDeviceFeatureRequirements.find(sType) != physicalDeviceFeatureRequirements.end())
+                res = res && checkDeviceFeaturesSupport(device, pStructChainIterator, physicalDeviceFeatureRequirements[sType]);
             pStructChainIterator = (VulkanExtensionHeader*)pStructChainIterator->pNext;
         }
         return true;
