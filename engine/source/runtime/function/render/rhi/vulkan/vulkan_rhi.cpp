@@ -679,8 +679,7 @@ namespace Polaris
         bool presentSupported = formatCount > 0 && presentModeCount > 0;
 
         //Check physical device features support
-        vkGetPhysicalDeviceFeatures2(device, &m_physicalFeaturesStructChain);
-        bool requiredFeaturesSupported = checkDeviceFeaturesSupport(device, m_physicalDeviceFeatureRequirements);
+        bool requiredFeaturesSupported = checkDeviceFeaturesSupport(device);
 
         return extensionsSupported && requiredFeaturesSupported && m_queueFamilyIndices.isComplete() && presentSupported ;
     }
@@ -742,29 +741,25 @@ namespace Polaris
     }
     
     /*
-    * Check whether the required features are supported by the physical device
+    * Iterate over the physical device feature struct chain and check whether every required feature can be enabled
     */
-    bool VulkanRHI::checkDeviceFeaturesSupport(VkPhysicalDevice device, std::map<VkStructureType, std::vector<const char*>> physicalDeviceFeatureRequirements) {
+    bool VulkanRHI::checkDeviceFeaturesSupport(VkPhysicalDevice device) {
+        vkGetPhysicalDeviceFeatures2(device, &m_physicalFeaturesStructChain);
         bool res = true;
         VulkanExtensionHeader* pStructChainIterator = reinterpret_cast<VulkanExtensionHeader*>(&m_physicalFeaturesStructChain);
-        while (pStructChainIterator != nullptr) 
+        while (pStructChainIterator != nullptr && res)
         {
             VkStructureType sType = pStructChainIterator->sType;
-            if (physicalDeviceFeatureRequirements.find(sType) != physicalDeviceFeatureRequirements.end())
-                res = res && checkDeviceFeaturesSupport(device, pStructChainIterator, physicalDeviceFeatureRequirements[sType]);
+            if (m_physicalDeviceFeatureRequirements.find(sType) != m_physicalDeviceFeatureRequirements.end())
+            {
+                for (const char* featureName : m_physicalDeviceFeatureRequirements[sType])
+                {
+                    res = res && VulkanReflectionUtil::getVkBool32StructValue(pStructChainIterator, featureName);
+                    if (!res) break;
+                }
+            }
             pStructChainIterator = (VulkanExtensionHeader*)pStructChainIterator->pNext;
         }
-        return true;
-    }
-
-    /*
-    * Check whether the required features of certain feature structure are supported by the physical device
-    */
-    bool VulkanRHI::checkDeviceFeaturesSupport(VkPhysicalDevice device, void* pFeatures, std::vector<const char*> requiredFeatures) {
-        std::string structName = VulkanReflectionUtil::getVkBool32StructName(pFeatures);
-        bool res = true;
-        for (const char* featureName : requiredFeatures)
-            res = res && VulkanReflectionUtil::getVkBool32StructValue(pFeatures, featureName);
         return res;
     }
 
