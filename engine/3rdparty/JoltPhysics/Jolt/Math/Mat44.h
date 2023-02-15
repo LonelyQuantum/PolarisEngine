@@ -8,7 +8,7 @@
 JPH_NAMESPACE_BEGIN
 
 /// Holds a 4x4 matrix of floats, but supports also operations on the 3x3 upper left part of the matrix.
-class [[nodiscard]] alignas(16) Mat44
+class [[nodiscard]] alignas(JPH_VECTOR_ALIGNMENT) Mat44
 {
 public:
 	JPH_OVERRIDE_NEW_DELETE
@@ -16,9 +16,13 @@ public:
 	// Underlying column type
 	using Type = Vec4::Type;
 
+	// Argument type
+	using ArgType = Mat44Arg;
+
 	/// Constructor
 								Mat44() = default; ///< Intentionally not initialized for performance reasons
 	JPH_INLINE					Mat44(Vec4Arg inC1, Vec4Arg inC2, Vec4Arg inC3, Vec4Arg inC4);
+	JPH_INLINE					Mat44(Vec4Arg inC1, Vec4Arg inC2, Vec4Arg inC3, Vec3Arg inC4);
 								Mat44(const Mat44 &inM2) = default;
 	JPH_INLINE					Mat44(Type inC1, Type inC2, Type inC3, Type inC4);
 
@@ -74,6 +78,12 @@ public:
 
 	/// Returns matrix MR so that \f$MR(q) \: p = p \: q\f$ (where p and q are quaternions)
 	static JPH_INLINE Mat44		sQuatRightMultiply(QuatArg inQ);
+
+	/// Returns a look at matrix that transforms from world space to view space
+	/// @param inPos Position of the camera
+	/// @param inTarget Target of the camera
+	/// @param inUp Up vector
+	static JPH_INLINE Mat44		sLookAt(Vec3Arg inPos, Vec3Arg inTarget, Vec3Arg inUp);
 
 	/// Get float component by element index
 	JPH_INLINE float			operator () (uint inRow, uint inColumn) const			{ JPH_ASSERT(inRow < 4); JPH_ASSERT(inColumn < 4); return mCol[inColumn].mF32[inRow]; }
@@ -201,6 +211,11 @@ public:
 	/// This equation only holds when the matrix is orthogonal, if it is not the returned matrix
 	/// will be made orthogonal using the modified Gram-Schmidt algorithm (see: https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process)
 	JPH_INLINE Mat44			Decompose(Vec3 &outScale) const;
+
+#ifndef JPH_DOUBLE_PRECISION
+	/// In single precision mode just return the matrix itself
+	JPH_INLINE Mat44			ToMat44() const											{ return *this; }
+#endif // !JPH_DOUBLE_PRECISION
 
 	/// To String
 	friend ostream &			operator << (ostream &inStream, Mat44Arg inM)

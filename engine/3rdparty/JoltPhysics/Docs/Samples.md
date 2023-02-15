@@ -53,6 +53,10 @@ This category demonstrates how ragdolls can be made and controlled using keyfram
 |:-|
 |*Demonstrating a humanoid ragdoll driven by motors which are trying to match a sprint animation in local space (green sticks).*|
 
+|[![Skeleton Mapper](https://img.youtube.com/vi/hrnmgNN-m-U/hqdefault.jpg)](https://www.youtube.com/watch?v=hrnmgNN-m-U)|
+|:-|
+|*An animation is played back on a high detail skeleton ('Animation') and then mapped onto a low detail ragdoll skeleton ('Reversed Mapped'). This animation is used to drive the motors of the ragdoll. The resulting pose is mapped back to the high detail skeleton ('Mapped'). Note that the skeletons are drawn offset to make them clearer..*|
+
 |[![160 Ragdolls in a Pile](https://img.youtube.com/vi/pwyCW0yNKMA/hqdefault.jpg)](https://www.youtube.com/watch?v=pwyCW0yNKMA)|
 |:-|
 |*160 Ragdolls being dropped on a scene from Horizon Zero Dawn.*|
@@ -101,6 +105,10 @@ This category shows the various constraints that are supported. Constraints conn
 |:-|
 |*Demonstrates a rack and pinion constraint.*|
 
+|[![Pulley constraint](https://img.youtube.com/vi/9P8OaahtU-4/hqdefault.jpg)](https://www.youtube.com/watch?v=9P8OaahtU-4)|
+|:-|
+|*Shows two boxes connected through a pulley constraint. In this case the constraint is configured as a block and tackle with and advantage of 2: the right block moves 2x as slow as the left block.*|
+
 ### General
 
 This category contains general simulation tests. It demonstrates things like friction, restitution, damping, modifying gravity and continous collision detection. Some highlights:
@@ -120,6 +128,10 @@ This category contains general simulation tests. It demonstrates things like fri
 |[![Multithreaded Island Simulation](https://img.youtube.com/vi/_Lv5xlWtCpM/hqdefault.jpg)](https://www.youtube.com/watch?v=_Lv5xlWtCpM)|
 |:-|
 |*We will automatically split up the simulation in islands of non-interacting bodies and distribute the work across multiple threads. Each island has its own color.*|
+
+|[![Single vs Double Precision](https://img.youtube.com/vi/KGnlYSW3550/hqdefault.jpg)](https://www.youtube.com/watch?v=KGnlYSW3550)|
+|:-|
+|*Shows the difference between compiling Jolt Physics in single precision and double precision (define JPH_DOUBLE_PRECISION).*|
 
 ### Shapes & Scaled Shapes
 

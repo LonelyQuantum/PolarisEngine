@@ -27,7 +27,7 @@ public:
 
 	/// Write a vector of primitives from the binary stream
 	template <class T, class A>
-	void				Write(const vector<T, A> &inT)
+	void				Write(const std::vector<T, A> &inT)
 	{
 		typename Array<T>::size_type len = inT.size();
 		Write(len);
@@ -38,9 +38,9 @@ public:
 
 	/// Write a string to the binary stream (writes the number of characters and then the characters)
 	template <class Type, class Traits, class Allocator>
-	void				Write(const basic_string<Type, Traits, Allocator> &inString)
+	void				Write(const std::basic_string<Type, Traits, Allocator> &inString)
 	{
-		typename basic_string<Type, Traits, Allocator>::size_type len = inString.size();
+		typename std::basic_string<Type, Traits, Allocator>::size_type len = inString.size();
 		Write(len);
 		if (!IsFailed())
 			WriteBytes(inString.data(), len * sizeof(Type));
@@ -50,6 +50,22 @@ public:
 	void				Write(const Vec3 &inVec)
 	{
 		WriteBytes(&inVec, 3 * sizeof(float));
+	}
+
+	/// Write a DVec3 (don't write W)
+	void				Write(const DVec3 &inVec)
+	{
+		WriteBytes(&inVec, 3 * sizeof(double));
+	}
+
+	/// Write a DMat44 (don't write W component of translation)
+	void				Write(const DMat44 &inVec)
+	{
+		Write(inVec.GetColumn4(0));
+		Write(inVec.GetColumn4(1));
+		Write(inVec.GetColumn4(2));
+
+		Write(inVec.GetTranslation());
 	}
 };
 

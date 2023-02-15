@@ -32,10 +32,10 @@ JPH_IMPLEMENT_SERIALIZABLE_ABSTRACT(ConvexShapeSettings)
 	JPH_ADD_ATTRIBUTE(ConvexShapeSettings, mMaterial)
 }
 
-const vector<Vec3> ConvexShape::sUnitSphereTriangles = []() { 
+const std::vector<Vec3> ConvexShape::sUnitSphereTriangles = []() { 
 	const int level = 2;
 
-	vector<Vec3> verts;	
+	std::vector<Vec3> verts;	
 	GetTrianglesContextVertexList::sCreateHalfUnitSphereTop(verts, level);
 	GetTrianglesContextVertexList::sCreateHalfUnitSphereBottom(verts, level);
 	return verts;
@@ -144,18 +144,10 @@ void ConvexShape::sCollideConvexVsConvex(const Shape *inShape1, const Shape *inS
 	if (inCollideShapeSettings.mCollectFacesMode == ECollectFacesMode::CollectFaces)
 	{
 		// Get supporting face of shape 1
-		shape1->GetSupportingFace(-penetration_axis, inScale1, result.mShape1Face);
-
-		// Convert to world space
-		for (Vec3 &p : result.mShape1Face)
-			p = inCenterOfMassTransform1 * p;
+		shape1->GetSupportingFace(SubShapeID(), -penetration_axis, inScale1, inCenterOfMassTransform1, result.mShape1Face);
 
 		// Get supporting face of shape 2 
-		shape2->GetSupportingFace(transform_2_to_1.Multiply3x3Transposed(penetration_axis), inScale2, result.mShape2Face);
-
-		// Convert to world space
-		for (Vec3 &p : result.mShape2Face)
-			p = inCenterOfMassTransform2 * p;
+		shape2->GetSupportingFace(SubShapeID(), transform_2_to_1.Multiply3x3Transposed(penetration_axis), inScale2, inCenterOfMassTransform2, result.mShape2Face);
 	}
 
 	// Notify the collector
@@ -297,19 +289,10 @@ void ConvexShape::sCastConvexVsConvex(const ShapeCast &inShapeCast, const ShapeC
 			// Get supporting face of shape 1
 			Mat44 transform_1_to_2 = inShapeCast.mCenterOfMassStart;
 			transform_1_to_2.SetTranslation(transform_1_to_2.GetTranslation() + fraction * inShapeCast.mDirection);
-			cast_shape->GetSupportingFace(transform_1_to_2.Multiply3x3Transposed(-contact_normal), inShapeCast.mScale, result.mShape1Face);
-
-			// Convert to world space
-			Mat44 transform_1_to_world = inCenterOfMassTransform2 * transform_1_to_2;
-			for (Vec3 &p : result.mShape1Face)
-				p = transform_1_to_world * p;
+			cast_shape->GetSupportingFace(SubShapeID(), transform_1_to_2.Multiply3x3Transposed(-contact_normal), inShapeCast.mScale, inCenterOfMassTransform2 * transform_1_to_2, result.mShape1Face);
 
 			// Get supporting face of shape 2
-			shape->GetSupportingFace(contact_normal, inScale, result.mShape2Face);
-
-			// Convert to world space
-			for (Vec3 &p : result.mShape2Face)
-				p = inCenterOfMassTransform2 * p;
+			shape->GetSupportingFace(SubShapeID(), contact_normal, inScale, inCenterOfMassTransform2, result.mShape2Face);
 		}
 
 		JPH_IF_TRACK_NARROWPHASE_STATS(TrackNarrowPhaseCollector track;)
@@ -385,7 +368,7 @@ int ConvexShape::GetTrianglesNext(GetTrianglesContext &ioContext, int inMaxTrian
 	return total_num_triangles;
 }
 
-void ConvexShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy) const
+void ConvexShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, RVec3Arg inBaseOffset)) const
 {
 	// Calculate total volume
 	Vec3 abs_scale = inScale.Abs();
@@ -419,7 +402,7 @@ void ConvexShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg i
 	};
 
 	PolyhedronSubmergedVolumeCalculator::Point *buffer = (PolyhedronSubmergedVolumeCalculator::Point *)JPH_STACK_ALLOC(8 * sizeof(PolyhedronSubmergedVolumeCalculator::Point));
-	PolyhedronSubmergedVolumeCalculator submerged_vol_calc(inCenterOfMassTransform * Mat44::sScale(extent), points, sizeof(Vec3), 8, inSurface, buffer);
+	PolyhedronSubmergedVolumeCalculator submerged_vol_calc(inCenterOfMassTransform * Mat44::sScale(extent), points, sizeof(Vec3), 8, inSurface, buffer JPH_IF_DEBUG_RENDERER(, inBaseOffset));
 
 	if (submerged_vol_calc.AreAllAbove())
 	{
@@ -453,7 +436,7 @@ void ConvexShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg i
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void ConvexShape::DrawGetSupportFunction(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inDrawSupportDirection) const
+void ConvexShape::DrawGetSupportFunction(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inDrawSupportDirection) const
 {
 	// Get the support function with convex radius
 	SupportBuffer buffer;
@@ -473,15 +456,15 @@ void ConvexShape::DrawGetSupportFunction(DebugRenderer *inRenderer, Mat44Arg inC
 		{
 			Vec3 direction = 0.05f * v;
 			Vec3 pos = add_convex.GetSupport(direction);
-			Vec3 from = inCenterOfMassTransform * pos;
-			Vec3 to = inCenterOfMassTransform * (pos + direction);
+			RVec3 from = inCenterOfMassTransform * pos;
+			RVec3 to = inCenterOfMassTransform * (pos + direction);
 			inRenderer->DrawMarker(from, Color::sWhite, 0.001f);
 			inRenderer->DrawArrow(from, to, Color::sWhite, 0.001f);
 		}
 	}
 }
 
-void ConvexShape::DrawGetSupportingFace(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale) const
+void ConvexShape::DrawGetSupportingFace(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale) const
 {
 	// Sample directions and map which faces belong to which directions
 	using FaceToDirection = UnorderedMap<SupportingFace, Array<Vec3>>;
@@ -491,7 +474,7 @@ void ConvexShape::DrawGetSupportingFace(DebugRenderer *inRenderer, Mat44Arg inCe
 		Vec3 direction = 0.05f * v;
 			
 		SupportingFace face;
-		GetSupportingFace(direction, inScale, face);
+		GetSupportingFace(SubShapeID(), direction, inScale, Mat44::sIdentity(), face);
 			
 		if (!face.empty())
 		{
@@ -514,16 +497,16 @@ void ConvexShape::DrawGetSupportingFace(DebugRenderer *inRenderer, Mat44Arg inCe
 		Vec3 displacement = 0.001f * normal;
 		
 		// Transform face to world space and calculate center of mass
-		Vec3 com = Vec3::sZero();
+		Vec3 com_ls = Vec3::sZero();
 		for (Vec3 &v : face)
 		{
-			v = inCenterOfMassTransform * (v + displacement);
-			com += v;
+			v = inCenterOfMassTransform.Multiply3x3(v + displacement);
+			com_ls += v;
 		}
-		com /= (float)face.size();
+		RVec3 com = inCenterOfMassTransform.GetTranslation() + com_ls / (float)face.size();
 		
 		// Draw the polygon and directions
-		inRenderer->DrawWirePolygon(face, color, face.size() >= 3? 0.001f : 0.0f);
+		inRenderer->DrawWirePolygon(RMat44::sTranslation(inCenterOfMassTransform.GetTranslation()), face, color, face.size() >= 3? 0.001f : 0.0f);
 		if (face.size() >= 3)
 			inRenderer->DrawArrow(com, com + inCenterOfMassTransform.Multiply3x3(normal), color, 0.01f);
 		for (Vec3 &v : ftd.second)

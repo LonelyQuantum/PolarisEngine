@@ -17,8 +17,6 @@ JPH_IMPLEMENT_RTTI_VIRTUAL(VehicleConstraintTest)
 	JPH_ADD_BASE_CLASS(VehicleConstraintTest, VehicleTest) 
 }
 
-int VehicleConstraintTest::sCollisionMode = 1;
-
 VehicleConstraintTest::~VehicleConstraintTest()
 {
 	mPhysicsSystem->RemoveStepListener(mVehicleConstraint);
@@ -42,7 +40,7 @@ void VehicleConstraintTest::Initialize()
 	mTesters[1] = new VehicleCollisionTesterCastSphere(Layers::MOVING, 0.5f * wheel_width);
 
 	// Create vehicle body
-	Vec3 position(0, 2, 0);
+	RVec3 position(0, 2, 0);
 	RefConst<Shape> car_shape = OffsetCenterOfMassShapeSettings(Vec3(0, -half_vehicle_height, 0), new BoxShape(Vec3(half_vehicle_width, half_vehicle_height, half_vehicle_length))).Create().Get();
 	BodyCreationSettings car_body_settings(car_shape, position, Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING);
 	car_body_settings.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
@@ -57,21 +55,21 @@ void VehicleConstraintTest::Initialize()
 
 	// Wheels
 	WheelSettingsWV *w1 = new WheelSettingsWV;
-	w1->mPosition = Vec3(-half_vehicle_width, -0.9f * half_vehicle_height, half_vehicle_length - 2.0f * wheel_radius);
+	w1->mPosition = Vec3(half_vehicle_width, -0.9f * half_vehicle_height, half_vehicle_length - 2.0f * wheel_radius);
 	w1->mMaxSteerAngle = max_steering_angle;
 	w1->mMaxHandBrakeTorque = 0.0f; // Front wheel doesn't have hand brake
 
 	WheelSettingsWV *w2 = new WheelSettingsWV;
-	w2->mPosition = Vec3(half_vehicle_width, -0.9f * half_vehicle_height, half_vehicle_length - 2.0f * wheel_radius);
+	w2->mPosition = Vec3(-half_vehicle_width, -0.9f * half_vehicle_height, half_vehicle_length - 2.0f * wheel_radius);
 	w2->mMaxSteerAngle = max_steering_angle;
 	w2->mMaxHandBrakeTorque = 0.0f; // Front wheel doesn't have hand brake
 
 	WheelSettingsWV *w3 = new WheelSettingsWV;
-	w3->mPosition = Vec3(-half_vehicle_width, -0.9f * half_vehicle_height, -half_vehicle_length + 2.0f * wheel_radius);
+	w3->mPosition = Vec3(half_vehicle_width, -0.9f * half_vehicle_height, -half_vehicle_length + 2.0f * wheel_radius);
 	w3->mMaxSteerAngle = 0.0f;
 
 	WheelSettingsWV *w4 = new WheelSettingsWV;
-	w4->mPosition = Vec3(half_vehicle_width, -0.9f * half_vehicle_height, -half_vehicle_length + 2.0f * wheel_radius);
+	w4->mPosition = Vec3(-half_vehicle_width, -0.9f * half_vehicle_height, -half_vehicle_length + 2.0f * wheel_radius);
 	w4->mMaxSteerAngle = 0.0f;
 
 	vehicle.mWheels = { w1, w2, w3, w4 };
@@ -88,16 +86,27 @@ void VehicleConstraintTest::Initialize()
 	vehicle.mController = controller;
 
 	// Differential
-	controller->mDifferentials.resize(1);
+	controller->mDifferentials.resize(sFourWheelDrive? 2 : 1);
 	controller->mDifferentials[0].mLeftWheel = 0;
 	controller->mDifferentials[0].mRightWheel = 1;
+	if (sFourWheelDrive)
+	{
+		controller->mDifferentials[1].mLeftWheel = 2;
+		controller->mDifferentials[1].mRightWheel = 3;
+
+		// Split engine torque
+		controller->mDifferentials[0].mEngineTorqueRatio = controller->mDifferentials[1].mEngineTorqueRatio = 0.5f;
+	}
 
 	// Anti rollbars
-	vehicle.mAntiRollBars.resize(2);
-	vehicle.mAntiRollBars[0].mLeftWheel = 0;
-	vehicle.mAntiRollBars[0].mRightWheel = 1;
-	vehicle.mAntiRollBars[1].mLeftWheel = 2;
-	vehicle.mAntiRollBars[1].mRightWheel = 3;
+	if (sAntiRollbar)
+	{
+		vehicle.mAntiRollBars.resize(2);
+		vehicle.mAntiRollBars[0].mLeftWheel = 0;
+		vehicle.mAntiRollBars[0].mRightWheel = 1;
+		vehicle.mAntiRollBars[1].mLeftWheel = 2;
+		vehicle.mAntiRollBars[1].mRightWheel = 3;
+	}
 
 	mVehicleConstraint = new VehicleConstraint(*mCarBody, vehicle);
 	mPhysicsSystem->AddConstraint(mVehicleConstraint);
@@ -148,8 +157,20 @@ void VehicleConstraintTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 	if (right != 0.0f || forward != 0.0f || brake != 0.0f || hand_brake != 0.0f)
 		mBodyInterface->ActivateBody(mCarBody->GetID());
 
+	WheeledVehicleController *controller = static_cast<WheeledVehicleController *>(mVehicleConstraint->GetController());
+
+	// Update vehicle statistics
+	controller->GetEngine().mMaxTorque = sMaxEngineTorque;
+	controller->GetTransmission().mClutchStrength = sClutchStrength;
+
+	// Set slip ratios to the same for everything
+	float limited_slip_ratio = sLimitedSlipDifferentials? 1.4f : FLT_MAX;
+	controller->SetDifferentialLimitedSlipRatio(limited_slip_ratio);
+	for (VehicleDifferentialSettings &d : controller->GetDifferentials())
+		d.mLimitedSlipRatio = limited_slip_ratio;
+
 	// Pass the input on to the constraint
-	static_cast<WheeledVehicleController *>(mVehicleConstraint->GetController())->SetDriverInput(forward, right, brake, hand_brake);
+	controller->SetDriverInput(forward, right, brake, hand_brake);
 
 	// Set the collision tester
 	mVehicleConstraint->SetVehicleCollisionTester(mTesters[sCollisionMode]);
@@ -158,7 +179,7 @@ void VehicleConstraintTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 	for (uint w = 0; w < 4; ++w)
 	{
 		const WheelSettings *settings = mVehicleConstraint->GetWheels()[w]->GetSettings();
-		Mat44 wheel_transform = mVehicleConstraint->GetWheelWorldTransform(w, Vec3::sAxisY(), Vec3::sAxisX()); // The cyclinder we draw is aligned with Y so we specify that as rotational axis
+		RMat44 wheel_transform = mVehicleConstraint->GetWheelWorldTransform(w, Vec3::sAxisY(), Vec3::sAxisX()); // The cyclinder we draw is aligned with Y so we specify that as rotational axis
 		mDebugRenderer->DrawCylinder(wheel_transform, 0.5f * settings->mWidth, settings->mRadius, Color::sGreen);
 	}
 }
@@ -166,12 +187,12 @@ void VehicleConstraintTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 void VehicleConstraintTest::GetInitialCamera(CameraState &ioState) const 
 {
 	// Position camera behind car
-	Vec3 cam_tgt = Vec3(0, 0, 5);
-	ioState.mPos = Vec3(0, 2.5f, -5);
-	ioState.mForward = (cam_tgt - ioState.mPos).Normalized();
+	RVec3 cam_tgt = RVec3(0, 0, 5);
+	ioState.mPos = RVec3(0, 2.5f, -5);
+	ioState.mForward = Vec3(cam_tgt - ioState.mPos).Normalized();
 }
 
-Mat44 VehicleConstraintTest::GetCameraPivot(float inCameraHeading, float inCameraPitch) const 
+RMat44 VehicleConstraintTest::GetCameraPivot(float inCameraHeading, float inCameraPitch) const 
 {
 	// Pivot is center of car and rotates with car around Y axis only
 	Vec3 fwd = mCarBody->GetRotation().RotateAxisZ();
@@ -183,7 +204,7 @@ Mat44 VehicleConstraintTest::GetCameraPivot(float inCameraHeading, float inCamer
 		fwd = Vec3::sAxisZ();
 	Vec3 up = Vec3::sAxisY();
 	Vec3 right = up.Cross(fwd);
-	return Mat44(Vec4(right, 0), Vec4(up, 0), Vec4(fwd, 0), Vec4(mCarBody->GetPosition(), 1.0f));
+	return RMat44(Vec4(right, 0), Vec4(up, 0), Vec4(fwd, 0), mCarBody->GetPosition());
 }
 
 void VehicleConstraintTest::CreateSettingsMenu(DebugUI *inUI, UIElement *inSubMenu)
@@ -191,4 +212,9 @@ void VehicleConstraintTest::CreateSettingsMenu(DebugUI *inUI, UIElement *inSubMe
 	VehicleTest::CreateSettingsMenu(inUI, inSubMenu);
 
 	inUI->CreateComboBox(inSubMenu, "Collision Mode", { "Ray", "Cast Sphere" }, sCollisionMode, [](int inItem) { sCollisionMode = inItem; });
+	inUI->CreateCheckBox(inSubMenu, "4 Wheel Drive", sFourWheelDrive, [this](UICheckBox::EState inState) { sFourWheelDrive = inState == UICheckBox::STATE_CHECKED; RestartTest(); });
+	inUI->CreateCheckBox(inSubMenu, "Anti Rollbars", sAntiRollbar, [this](UICheckBox::EState inState) { sAntiRollbar = inState == UICheckBox::STATE_CHECKED; RestartTest(); });
+	inUI->CreateCheckBox(inSubMenu, "Limited Slip Differentials", sLimitedSlipDifferentials, [](UICheckBox::EState inState) { sLimitedSlipDifferentials = inState == UICheckBox::STATE_CHECKED; });
+	inUI->CreateSlider(inSubMenu, "Max Engine Torque", float(sMaxEngineTorque), 100.0f, 2000.0f, 10.0f, [](float inValue) { sMaxEngineTorque = inValue; });
+	inUI->CreateSlider(inSubMenu, "Clutch Strength", float(sClutchStrength), 1.0f, 40.0f, 1.0f, [](float inValue) { sClutchStrength = inValue; });
 }

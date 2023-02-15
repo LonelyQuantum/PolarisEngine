@@ -128,11 +128,22 @@ Quat Quat::sFromTo(Vec3Arg inFrom, Vec3Arg inTo)
 		which then needs to be normalized because the whole equation was multiplied by 2 cos(angle / 2)
 	*/
 
-	float w = sqrt(inFrom.LengthSq() * inTo.LengthSq()) + inFrom.Dot(inTo);
+	float len_v1_v2 = sqrt(inFrom.LengthSq() * inTo.LengthSq());
+	float w = len_v1_v2 + inFrom.Dot(inTo);
 
-	// Check if vectors are perpendicular, if take one of the many 180 degree rotations that exist
 	if (w == 0.0f)
-		return Quat(Vec4(inFrom.GetNormalizedPerpendicular(), 0));
+	{
+		if (len_v1_v2 == 0.0f)
+		{
+			// If either of the vectors has zero length, there is no rotation and we return identity
+			return Quat::sIdentity();
+		}
+		else
+		{
+			// If vectors are perpendicular, take one of the many 180 degree rotations that exist	
+			return Quat(Vec4(inFrom.GetNormalizedPerpendicular(), 0));
+		}
+	}
 
 	Vec3 v = inFrom.Cross(inTo);
 	return Quat(Vec4(v, w)).Normalized();
@@ -141,10 +152,10 @@ Quat Quat::sFromTo(Vec3Arg inFrom, Vec3Arg inTo)
 template <class Random>
 Quat Quat::sRandom(Random &inRandom)
 {
-	uniform_real_distribution<float> zero_to_one(0.0f, 1.0f);
+	std::uniform_real_distribution<float> zero_to_one(0.0f, 1.0f);
 	float x0 = zero_to_one(inRandom);
 	float r1 = sqrt(1.0f - x0), r2 = sqrt(x0);
-	uniform_real_distribution<float> zero_to_two_pi(0.0f, 2.0f * JPH_PI);
+	std::uniform_real_distribution<float> zero_to_two_pi(0.0f, 2.0f * JPH_PI);
 	Vec4 s, c;
 	Vec4(zero_to_two_pi(inRandom), zero_to_two_pi(inRandom), 0, 0).SinCos(s, c);
 	return Quat(s.GetX() * r1, c.GetX() * r1, s.GetY() * r2, c.GetY() * r2);

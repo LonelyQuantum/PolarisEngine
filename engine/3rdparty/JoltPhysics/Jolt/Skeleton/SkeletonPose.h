@@ -28,8 +28,13 @@ public:
 	const Skeleton *			GetSkeleton() const														{ return mSkeleton; }
 	///@}
 
+	/// Extra offset applied to the root (and therefore also to all of its children)
+	void						SetRootOffset(RVec3Arg inOffset)										{ mRootOffset = inOffset; }
+	RVec3						GetRootOffset() const													{ return mRootOffset; }
+
 	///@name Properties of the joints
 	///@{
+	uint						GetJointCount() const													{ return (uint)mJoints.size(); }
 	const JointStateVector &	GetJoints() const														{ return mJoints; }
 	JointStateVector &			GetJoints()																{ return mJoints; }
 	const JointState &			GetJoint(int inJoint) const												{ return mJoints[inJoint]; }
@@ -38,12 +43,20 @@ public:
 
 	///@name Joint matrices
 	///@{
-	void						CalculateJointMatrices();
 	const Mat44Vector &			GetJointMatrices() const												{ return mJointMatrices; }
 	Mat44Vector &				GetJointMatrices()														{ return mJointMatrices; }
 	const Mat44 &				GetJointMatrix(int inJoint) const										{ return mJointMatrices[inJoint]; }
 	Mat44 &						GetJointMatrix(int inJoint)												{ return mJointMatrices[inJoint]; }
 	///@}
+
+	/// Convert the joint states to joint matrices
+	void						CalculateJointMatrices();
+
+	/// Convert joint matrices to joint states
+	void						CalculateJointStates();
+
+	/// Outputs the joint matrices in local space (ensure that outMatrices has GetJointCount() elements, assumes that values in GetJoints() is up to date)
+	void						CalculateLocalSpaceJointMatrices(Mat44 *outMatrices) const;
 
 #ifdef JPH_DEBUG_RENDERER
 	/// Draw settings
@@ -55,11 +68,12 @@ public:
 	};
 
 	/// Draw current pose
-	void						Draw(const DrawSettings &inDrawSettings, DebugRenderer *inRenderer) const;
+	void						Draw(const DrawSettings &inDrawSettings, DebugRenderer *inRenderer, RMat44Arg inOffset = RMat44::sIdentity()) const;
 #endif // JPH_DEBUG_RENDERER
 
 private:
 	RefConst<Skeleton>			mSkeleton;																///< Skeleton definition
+	RVec3						mRootOffset { RVec3::sZero() };											///< Extra offset applied to the root (and therefore also to all of its children)
 	JointStateVector			mJoints;																///< Local joint orientations (local to parent Joint)
 	Mat44Vector					mJointMatrices;															///< Local joint matrices (local to world matrix)
 };

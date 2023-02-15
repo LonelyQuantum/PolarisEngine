@@ -9,7 +9,10 @@
 #include <Application/DebugUI.h>
 #include <Utils/Log.h>
 #include <Layers.h>
+
+JPH_SUPPRESS_WARNINGS_STD_BEGIN
 #include <fstream>
+JPH_SUPPRESS_WARNINGS_STD_END
 
 JPH_IMPLEMENT_RTTI_VIRTUAL(LoadSnapshotTest) 
 { 
@@ -49,7 +52,7 @@ void LoadSnapshotTest::Initialize()
 		}
 
 		// Rotate the body so that it matches Y is up
-		settings.mPosition = up_rotation * settings.mPosition;
+		settings.mPosition = RMat44::sRotation(up_rotation) * settings.mPosition;
 		settings.mRotation = up_rotation * settings.mRotation;
 	}
 

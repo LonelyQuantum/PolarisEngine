@@ -6,8 +6,11 @@
 #include <Tests/ConvexCollision/ConvexHullTest.h>
 #include <Jolt/Geometry/ConvexHullBuilder.h>
 #include <Utils/Log.h>
-#include <Renderer/DebugRendererImp.h>
+#include <Utils/DebugRendererSP.h>
+
+JPH_SUPPRESS_WARNINGS_STD_BEGIN
 #include <fstream>
+JPH_SUPPRESS_WARNINGS_STD_END
 
 JPH_IMPLEMENT_RTTI_VIRTUAL(ConvexHullTest) 
 { 
@@ -417,7 +420,7 @@ void ConvexHullTest::Initialize()
 			for (int y = 0; y < 10; ++y)
 				for (int z = 0; z < 10; ++z)
 					p.push_back(Vec3::sReplicate(-0.5f) * 0.1f * Vec3(float(x), float(y), float(z)));
-		mPoints.push_back(move(p));
+		mPoints.push_back(std::move(p));
 	}
 
 	// Add disc of many points
@@ -427,7 +430,7 @@ void ConvexHullTest::Initialize()
 		for (float r = 0.0f; r < 2.0f; r += 0.1f)
 			for (float phi = 0.0f; phi <= 2.0f * JPH_PI; phi += 2.0f * JPH_PI / 20.0f)
 				p.push_back(rot * Vec3(r * Cos(phi), r * Sin(phi), 0));
-		mPoints.push_back(move(p));
+		mPoints.push_back(std::move(p));
 	}
 
 	// Add wedge shaped disc that is just above the hull tolerance on its widest side and zero on the other side
@@ -439,7 +442,7 @@ void ConvexHullTest::Initialize()
 			p.push_back(pos);
 			p.push_back(pos + Vec3(0, 2.0e-3f * (2.0f + pos.GetX()) / 4.0f, 0));
 		}
-		mPoints.push_back(move(p));
+		mPoints.push_back(std::move(p));
 	}
 
 	// Add a sphere of many points
@@ -448,7 +451,7 @@ void ConvexHullTest::Initialize()
 		for (float theta = 0.0f; theta <= JPH_PI; theta += JPH_PI / 20.0f)
 			for (float phi = 0.0f; phi <= 2.0f * JPH_PI; phi += 2.0f * JPH_PI / 20.0f)
 				p.push_back(Vec3::sUnitSpherical(theta, phi));
-		mPoints.push_back(move(p));
+		mPoints.push_back(std::move(p));
 	}
 
 	// Open the external file with hulls
@@ -474,7 +477,7 @@ void ConvexHullTest::Initialize()
 					points_stream.read((char *)&v, sizeof(v));
 					p.push_back(Vec3(v));
 				}
-				mPoints.push_back(move(p));
+				mPoints.push_back(std::move(p));
 			}
 		}
 	}
@@ -562,14 +565,14 @@ void ConvexHullTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 		
 		// Draw point that had the max error
 		Vec3 point = display_scale * (points[max_error_point] - com);
-		mDebugRenderer->DrawMarker(point, Color::sRed, 1.0f);
-		mDebugRenderer->DrawText3D(point, StringFormat("%d: %g", max_error_point, (double)max_error), Color::sRed);
+		DrawMarkerSP(mDebugRenderer, point, Color::sRed, 1.0f);
+		DrawText3DSP(mDebugRenderer, point, StringFormat("%d: %g", max_error_point, (double)max_error), Color::sRed);
 
 		// Length of normal (2x area) for max error face
 		Vec3 centroid = display_scale * (max_error_face->mCentroid - com);
 		Vec3 centroid_plus_normal = centroid + max_error_face->mNormal.Normalized();
-		mDebugRenderer->DrawArrow(centroid, centroid_plus_normal, Color::sGreen, 0.1f);
-		mDebugRenderer->DrawText3D(centroid_plus_normal, ConvertToString(max_error_face->mNormal.Length()), Color::sGreen);
+		DrawArrowSP(mDebugRenderer, centroid, centroid_plus_normal, Color::sGreen, 0.1f);
+		DrawText3DSP(mDebugRenderer, centroid_plus_normal, ConvertToString(max_error_face->mNormal.Length()), Color::sGreen);
 
 		// Draw face that had the max error
 		const Edge *e = max_error_face->mFirstEdge;
@@ -578,8 +581,8 @@ void ConvexHullTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 		{ 
 			const Edge *next = e->mNextEdge;
 			Vec3 cur = display_scale * (points[next->mStartIdx] - com);
-			mDebugRenderer->DrawArrow(prev, cur, Color::sYellow, 0.01f);			
-			mDebugRenderer->DrawText3D(prev, ConvertToString(e->mStartIdx), Color::sYellow);
+			DrawArrowSP(mDebugRenderer, prev, cur, Color::sYellow, 0.01f);			
+			DrawText3DSP(mDebugRenderer, prev, ConvertToString(e->mStartIdx), Color::sYellow);
 			e = next;
 			prev = cur;
 		} while (e != max_error_face->mFirstEdge);
@@ -589,7 +592,7 @@ void ConvexHullTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 
 	// Draw input points around center of mass
 	for (Vec3 v : points)
-		mDebugRenderer->DrawMarker(display_scale * (v - com), Color::sWhite, 0.01f);
+		DrawMarkerSP(mDebugRenderer, display_scale * (v - com), Color::sWhite, 0.01f);
 
 	// Draw the hull around center of mass
 	int color_idx = 0;
@@ -606,7 +609,7 @@ void ConvexHullTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 		Vec3 p2 = display_scale * (points[e->mStartIdx] - com);
 
 		// First line
-		mDebugRenderer->DrawLine(p1, p2, Color::sGrey);
+		DrawLineSP(mDebugRenderer, p1, p2, Color::sGrey);
 
 		do
 		{
@@ -614,9 +617,9 @@ void ConvexHullTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 			e = e->mNextEdge;
 			Vec3 p3 = display_scale * (points[e->mStartIdx] - com);
 
-			mDebugRenderer->DrawTriangle(p1, p2, p3, color);
+			DrawTriangleSP(mDebugRenderer, p1, p2, p3, color);
 
-			mDebugRenderer->DrawLine(p2, p3, Color::sGrey);
+			DrawLineSP(mDebugRenderer, p2, p3, Color::sGrey);
 
 			p2 = p3;
 		}

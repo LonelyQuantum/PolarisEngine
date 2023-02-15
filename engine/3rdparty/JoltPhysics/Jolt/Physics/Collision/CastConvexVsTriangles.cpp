@@ -12,7 +12,7 @@
 
 JPH_NAMESPACE_BEGIN
 
-CastConvexVsTriangles::CastConvexVsTriangles(const ShapeCast &inShapeCast, const ShapeCastSettings &inShapeCastSettings, const Vec3 &inScale, const ShapeFilter &inShapeFilter, const Mat44 &inCenterOfMassTransform2, const SubShapeIDCreator &inSubShapeIDCreator1, CastShapeCollector &ioCollector) :
+CastConvexVsTriangles::CastConvexVsTriangles(const ShapeCast &inShapeCast, const ShapeCastSettings &inShapeCastSettings, Vec3Arg inScale, const ShapeFilter &inShapeFilter, Mat44Arg inCenterOfMassTransform2, const SubShapeIDCreator &inSubShapeIDCreator1, CastShapeCollector &ioCollector) :
 	mShapeCast(inShapeCast),
 	mShapeCastSettings(inShapeCastSettings),
 	mShapeFilter(inShapeFilter), 
@@ -91,12 +91,7 @@ void CastConvexVsTriangles::Cast(Vec3Arg inV0, Vec3Arg inV1, Vec3Arg inV2, uint8
 			// Get supporting face of shape 1
 			Mat44 transform_1_to_2 = mShapeCast.mCenterOfMassStart;
 			transform_1_to_2.SetTranslation(transform_1_to_2.GetTranslation() + fraction * mShapeCast.mDirection);
-			static_cast<const ConvexShape *>(mShapeCast.mShape)->GetSupportingFace(transform_1_to_2.Multiply3x3Transposed(-contact_normal), mShapeCast.mScale, result.mShape1Face);
-
-			// Convert to world space
-			Mat44 transform_1_to_world = mCenterOfMassTransform2 * transform_1_to_2;
-			for (Vec3 &p : result.mShape1Face)
-				p = transform_1_to_world * p;
+			static_cast<const ConvexShape *>(mShapeCast.mShape)->GetSupportingFace(SubShapeID(), transform_1_to_2.Multiply3x3Transposed(-contact_normal), mShapeCast.mScale, mCenterOfMassTransform2 * transform_1_to_2, result.mShape1Face);
 
 			// Get face of the triangle
 			triangle.GetSupportingFace(contact_normal, result.mShape2Face);

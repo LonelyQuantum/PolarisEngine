@@ -29,7 +29,8 @@ void CharacterTest::Initialize()
 	settings->mLayer = Layers::MOVING;
 	settings->mShape = mStandingShape;
 	settings->mFriction = 0.5f;
-	mCharacter = new Character(settings, Vec3::sZero(), Quat::sIdentity(), 0, mPhysicsSystem);
+	settings->mSupportingVolume = Plane(Vec3::sAxisY(), -cCharacterRadiusStanding); // Accept contacts that touch the lower sphere of the capsule
+	mCharacter = new Character(settings, RVec3::sZero(), Quat::sIdentity(), 0, mPhysicsSystem);
 	mCharacter->AddToPhysicsSystem(EActivation::Activate);
 }
 
@@ -69,9 +70,10 @@ void CharacterTest::RestoreState(StateRecorder &inStream)
 
 void CharacterTest::HandleInput(Vec3Arg inMovementDirection, bool inJump, bool inSwitchStance, float inDeltaTime)
 {
-	// Cancel movement in opposite direction of normal when sliding
+	// Cancel movement in opposite direction of normal when touching something we can't walk up
 	Character::EGroundState ground_state = mCharacter->GetGroundState();
-	if (ground_state == Character::EGroundState::Sliding)
+	if (ground_state == Character::EGroundState::OnSteepGround
+		|| ground_state == Character::EGroundState::NotSupported)
 	{
 		Vec3 normal = mCharacter->GetGroundNormal();
 		normal.SetY(0.0f);
@@ -80,20 +82,23 @@ void CharacterTest::HandleInput(Vec3Arg inMovementDirection, bool inJump, bool i
 			inMovementDirection -= (dot * normal) / normal.LengthSq();
 	}
 
-	// Update velocity
-	Vec3 current_velocity = mCharacter->GetLinearVelocity();
-	Vec3 desired_velocity = cCharacterSpeed * inMovementDirection;
-	desired_velocity.SetY(current_velocity.GetY());
-	Vec3 new_velocity = 0.75f * current_velocity + 0.25f * desired_velocity;
-
 	// Stance switch
 	if (inSwitchStance)
 		mCharacter->SetShape(mCharacter->GetShape() == mStandingShape? mCrouchingShape : mStandingShape, 1.5f * mPhysicsSystem->GetPhysicsSettings().mPenetrationSlop);
 
-	// Jump
-	if (inJump && ground_state == Character::EGroundState::OnGround)
-		new_velocity += Vec3(0, cJumpSpeed, 0);
+	if (sControlMovementDuringJump || mCharacter->IsSupported())
+	{
+		// Update velocity
+		Vec3 current_velocity = mCharacter->GetLinearVelocity();
+		Vec3 desired_velocity = sCharacterSpeed * inMovementDirection;
+		desired_velocity.SetY(current_velocity.GetY());
+		Vec3 new_velocity = 0.75f * current_velocity + 0.25f * desired_velocity;
 
-	// Update the velocity
-	mCharacter->SetLinearVelocity(new_velocity);
+		// Jump
+		if (inJump && ground_state == Character::EGroundState::OnGround)
+			new_velocity += Vec3(0, sJumpSpeed, 0);
+
+		// Update the velocity
+		mCharacter->SetLinearVelocity(new_velocity);
+	}
 }

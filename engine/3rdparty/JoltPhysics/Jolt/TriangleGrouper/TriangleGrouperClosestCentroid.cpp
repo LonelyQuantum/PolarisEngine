@@ -5,6 +5,7 @@
 
 #include <Jolt/TriangleGrouper/TriangleGrouperClosestCentroid.h>
 #include <Jolt/Geometry/MortonCode.h>
+#include <Jolt/Core/QuickSort.h>
 
 JPH_NAMESPACE_BEGIN
 
@@ -56,7 +57,7 @@ void TriangleGrouperClosestCentroid::Group(const VertexList &inVertices, const I
 		Vec3 first_centroid = centroids[*batch_begin];
 
 		// Sort remaining triangles in batch on distance to first triangle
-		sort(batch_begin_plus_1, batch_end, 
+		QuickSort(batch_begin_plus_1, batch_end, 
 			[&first_centroid, &centroids](uint inLHS, uint inRHS)
 			{ 
 				return (centroids[inLHS] - first_centroid).LengthSq() < (centroids[inRHS] - first_centroid).LengthSq(); 
@@ -75,7 +76,7 @@ void TriangleGrouperClosestCentroid::Group(const VertexList &inVertices, const I
 				*other = *batch_end_minus_1;
 
 				// Find first element that is bigger than this one and insert the current item before it
-				Array<uint>::iterator upper = upper_bound(batch_begin_plus_1, batch_end, dist, 
+				Array<uint>::iterator upper = std::upper_bound(batch_begin_plus_1, batch_end, dist, 
 					[&first_centroid, &centroids](float inLHS, uint inRHS)
 					{
 						return inLHS < (centroids[inRHS] - first_centroid).LengthSq(); 

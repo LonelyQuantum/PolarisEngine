@@ -80,7 +80,7 @@ TEST_SUITE("ActiveEdgesTest")
 	}
 
 	// Collide our probe against the test shape and validate the hit results
-	static void sTestCollideShape(Shape *inProbeShape, Shape *inTestShape, Vec3 inTestShapeScale, const CollideShapeSettings &inSettings, Vec3 inProbeShapePos, const Array<ExpectedHit> &inExpectedHits)
+	static void sTestCollideShape(Shape *inProbeShape, Shape *inTestShape, Vec3Arg inTestShapeScale, const CollideShapeSettings &inSettings, Vec3Arg inProbeShapePos, const Array<ExpectedHit> &inExpectedHits)
 	{
 		AllHitCollisionCollector<CollideShapeCollector> collector;
 		CollisionDispatch::sCollideShapeVsShape(inProbeShape, inTestShape, Vec3::sReplicate(1.0f), inTestShapeScale, Mat44::sTranslation(inProbeShapePos), Mat44::sIdentity(), SubShapeIDCreator(), SubShapeIDCreator(), inSettings, collector);
@@ -89,7 +89,7 @@ TEST_SUITE("ActiveEdgesTest")
 	}
 
 	// Collide a probe shape against our test shape in various locations to verify active edge behavior
-	static void sTestCollideShape(const ShapeSettings *inTestShape, Vec3 inTestShapeScale, bool inActiveEdgesOnly)
+	static void sTestCollideShape(const ShapeSettings *inTestShape, Vec3Arg inTestShapeScale, bool inActiveEdgesOnly)
 	{
 		CollideShapeSettings settings;
 		settings.mActiveEdgeMode = inActiveEdgesOnly? EActiveEdgeMode::CollideOnlyWithActive : EActiveEdgeMode::CollideWithAll;
@@ -138,7 +138,7 @@ TEST_SUITE("ActiveEdgesTest")
 	}
 
 	// Cast our probe against the test shape and validate the hit results
-	static void sTestCastShape(Shape *inProbeShape, Shape *inTestShape, Vec3 inTestShapeScale, const ShapeCastSettings &inSettings, Vec3 inProbeShapePos, Vec3 inProbeShapeDirection, const Array<ExpectedHit> &inExpectedHits)
+	static void sTestCastShape(Shape *inProbeShape, Shape *inTestShape, Vec3Arg inTestShapeScale, const ShapeCastSettings &inSettings, Vec3Arg inProbeShapePos, Vec3Arg inProbeShapeDirection, const Array<ExpectedHit> &inExpectedHits)
 	{
 		AllHitCollisionCollector<CastShapeCollector> collector;
 		ShapeCast shape_cast(inProbeShape, Vec3::sReplicate(1.0f), Mat44::sTranslation(inProbeShapePos), inProbeShapeDirection);
@@ -148,7 +148,7 @@ TEST_SUITE("ActiveEdgesTest")
 	}
 
 	// Cast a probe shape against our test shape in various locations to verify active edge behavior
-	static void sTestCastShape(const ShapeSettings *inTestShape, Vec3 inTestShapeScale, bool inActiveEdgesOnly)
+	static void sTestCastShape(const ShapeSettings *inTestShape, Vec3Arg inTestShapeScale, bool inActiveEdgesOnly)
 	{
 		ShapeCastSettings settings;
 		settings.mActiveEdgeMode = inActiveEdgesOnly? EActiveEdgeMode::CollideOnlyWithActive : EActiveEdgeMode::CollideWithAll;
@@ -207,11 +207,11 @@ TEST_SUITE("ActiveEdgesTest")
 		c.GetSystem()->SetPhysicsSettings(settings);
 
 		// Create frictionless floor
-		Body &floor = c.CreateBody(inShape, Vec3::sZero(), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
+		Body &floor = c.CreateBody(inShape, RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
 		floor.SetFriction(0.0f);
 
 		// Create box sliding over the floor
-		Vec3 initial_position(-3, 0.1f - cPenetrationSlop, 0);
+		RVec3 initial_position(-3, 0.1f - cPenetrationSlop, 0);
 		Vec3 initial_velocity(3, 0, 0);
 		Body &box = c.CreateBox(initial_position, Quat::sIdentity(), EMotionType::Dynamic, EMotionQuality::Discrete, Layers::MOVING, Vec3::sReplicate(0.1f));
 		box.SetLinearVelocity(initial_velocity);
@@ -221,12 +221,12 @@ TEST_SUITE("ActiveEdgesTest")
 		const float cSimulationTime = 2.0f;
 		c.Simulate(cSimulationTime);
 
-		Vec3 expected_position = initial_position + cSimulationTime * initial_velocity;
+		RVec3 expected_position = initial_position + cSimulationTime * initial_velocity;
 		if (inCheckActiveEdges)
 		{
 			// Box should have slided frictionless over the plane without encountering any collisions
-			CHECK_APPROX_EQUAL(box.GetPosition(), expected_position, 1.0e-4f);
-			CHECK_APPROX_EQUAL(box.GetLinearVelocity(), initial_velocity, 1.0e-4f);
+			CHECK_APPROX_EQUAL(box.GetPosition(), expected_position, 1.0e-3f);
+			CHECK_APPROX_EQUAL(box.GetLinearVelocity(), initial_velocity, 2.0e-3f);
 		}
 		else
 		{
@@ -278,12 +278,12 @@ TEST_SUITE("ActiveEdgesTest")
 		c.GetSystem()->SetPhysicsSettings(settings);
 
 		// Create frictionless floor
-		Body &floor = c.CreateBody(inShape, Vec3::sZero(), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
+		Body &floor = c.CreateBody(inShape, RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
 		floor.SetFriction(0.0f);
 
 		// Create box starting a little bit above the floor and ending 0.5 * cPenetrationSlop below the floor so that if no internal edges are hit the motion should not be stopped
 		// Note that we need the vertical velocity or else back face culling will ignore the face
-		Vec3 initial_position(-3, 0.1f + cPenetrationSlop, 0);
+		RVec3 initial_position(-3, 0.1f + cPenetrationSlop, 0);
 		Vec3 initial_velocity(6 * 60, -1.5f * cPenetrationSlop * 60, 0);
 		Body &box = c.CreateBox(initial_position, Quat::sIdentity(), EMotionType::Dynamic, EMotionQuality::LinearCast, Layers::MOVING, Vec3::sReplicate(0.1f));
 		box.SetLinearVelocity(initial_velocity);
@@ -295,7 +295,7 @@ TEST_SUITE("ActiveEdgesTest")
 
 		c.SimulateSingleStep();
 
-		Vec3 expected_position = initial_position + initial_velocity / 60.0f;
+		RVec3 expected_position = initial_position + initial_velocity / 60.0f;
 		if (inCheckActiveEdges)
 		{
 			// Box should stepped in one frame over the plane without encountering any linear cast collisions

@@ -155,11 +155,26 @@ const ConvexShape::Support *TriangleShape::GetSupportFunction(ESupportMode inMod
 	return nullptr;
 }
 
-void TriangleShape::GetSupportingFace(Vec3Arg inDirection, Vec3Arg inScale, SupportingFace &outVertices) const
+void TriangleShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const
 {
-	outVertices.push_back(inScale * mV1);
-	outVertices.push_back(inScale * mV2);
-	outVertices.push_back(inScale * mV3);
+	JPH_ASSERT(inSubShapeID.IsEmpty(), "Invalid subshape ID");
+
+	// Calculate transform with scale
+	Mat44 transform = inCenterOfMassTransform.PreScaled(inScale);
+
+	// Flip triangle if scaled inside out
+	if (ScaleHelpers::IsInsideOut(inScale))
+	{
+		outVertices.push_back(transform * mV1);
+		outVertices.push_back(transform * mV3);
+		outVertices.push_back(transform * mV2);
+	}
+	else
+	{
+		outVertices.push_back(transform * mV1);
+		outVertices.push_back(transform * mV2);
+		outVertices.push_back(transform * mV3);
+	}
 }
 
 MassProperties TriangleShape::GetMassProperties() const
@@ -177,7 +192,7 @@ Vec3 TriangleShape::GetSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg inL
 	return len != 0.0f? cross / len : Vec3::sAxisY();
 }
 
-void TriangleShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy) const
+void TriangleShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, RVec3Arg inBaseOffset)) const
 {
 	// A triangle has no volume
 	outTotalVolume = outSubmergedVolume = 0.0f;
@@ -185,11 +200,11 @@ void TriangleShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void TriangleShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void TriangleShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
-	Vec3 v1 = inCenterOfMassTransform * (inScale * mV1);
-	Vec3 v2 = inCenterOfMassTransform * (inScale * mV2);
-	Vec3 v3 = inCenterOfMassTransform * (inScale * mV3);
+	RVec3 v1 = inCenterOfMassTransform * (inScale * mV1);
+	RVec3 v2 = inCenterOfMassTransform * (inScale * mV2);
+	RVec3 v3 = inCenterOfMassTransform * (inScale * mV3);
 
 	if (ScaleHelpers::IsInsideOut(inScale))
 		swap(v1, v2);
@@ -285,7 +300,7 @@ void TriangleShape::TransformShape(Mat44Arg inCenterOfMassTransform, Transformed
 {
 	Vec3 scale;
 	Mat44 transform = inCenterOfMassTransform.Decompose(scale);
-	TransformedShape ts(transform.GetTranslation(), transform.GetRotation().GetQuaternion(), this, BodyID(), SubShapeIDCreator());
+	TransformedShape ts(RVec3(transform.GetTranslation()), transform.GetRotation().GetQuaternion(), this, BodyID(), SubShapeIDCreator());
 	ts.SetShapeScale(mConvexRadius == 0.0f? scale : scale.GetSign() * ScaleHelpers::MakeUniformScale(scale.Abs()));
 	ioCollector.AddHit(ts);
 }

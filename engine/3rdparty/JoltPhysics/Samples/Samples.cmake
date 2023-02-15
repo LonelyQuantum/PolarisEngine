@@ -19,6 +19,8 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/Character/CharacterTest.h
 	${SAMPLES_ROOT}/Tests/Character/CharacterVirtualTest.cpp
 	${SAMPLES_ROOT}/Tests/Character/CharacterVirtualTest.h
+	${SAMPLES_ROOT}/Tests/Character/CharacterSpaceShipTest.cpp
+	${SAMPLES_ROOT}/Tests/Character/CharacterSpaceShipTest.h
 	${SAMPLES_ROOT}/Tests/Constraints/ConeConstraintTest.cpp
 	${SAMPLES_ROOT}/Tests/Constraints/ConeConstraintTest.h
 	${SAMPLES_ROOT}/Tests/Constraints/ConstraintSingularityTest.cpp
@@ -41,6 +43,8 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/Constraints/PoweredSwingTwistConstraintTest.h
 	${SAMPLES_ROOT}/Tests/Constraints/PoweredSliderConstraintTest.cpp
 	${SAMPLES_ROOT}/Tests/Constraints/PoweredSliderConstraintTest.h
+	${SAMPLES_ROOT}/Tests/Constraints/PulleyConstraintTest.cpp
+	${SAMPLES_ROOT}/Tests/Constraints/PulleyConstraintTest.h
 	${SAMPLES_ROOT}/Tests/Constraints/RackAndPinionConstraintTest.cpp
 	${SAMPLES_ROOT}/Tests/Constraints/RackAndPinionConstraintTest.h
 	${SAMPLES_ROOT}/Tests/Constraints/SwingTwistConstraintFrictionTest.cpp
@@ -73,6 +77,8 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/General/BigVsSmallTest.h
 	${SAMPLES_ROOT}/Tests/General/CenterOfMassTest.cpp
 	${SAMPLES_ROOT}/Tests/General/CenterOfMassTest.h
+	${SAMPLES_ROOT}/Tests/General/ChangeMotionQualityTest.cpp
+	${SAMPLES_ROOT}/Tests/General/ChangeMotionQualityTest.h
 	${SAMPLES_ROOT}/Tests/General/ChangeMotionTypeTest.cpp
 	${SAMPLES_ROOT}/Tests/General/ChangeMotionTypeTest.h
 	${SAMPLES_ROOT}/Tests/General/ChangeShapeTest.cpp
@@ -119,10 +125,14 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/General/SimpleTest.h
 	${SAMPLES_ROOT}/Tests/General/StackTest.cpp
 	${SAMPLES_ROOT}/Tests/General/StackTest.h
+	${SAMPLES_ROOT}/Tests/General/TwoDFunnelTest.cpp
+	${SAMPLES_ROOT}/Tests/General/TwoDFunnelTest.h
 	${SAMPLES_ROOT}/Tests/General/WallTest.cpp
 	${SAMPLES_ROOT}/Tests/General/WallTest.h
 	${SAMPLES_ROOT}/Tests/General/ActivateDuringUpdateTest.cpp
 	${SAMPLES_ROOT}/Tests/General/ActivateDuringUpdateTest.h
+	${SAMPLES_ROOT}/Tests/Rig/BigWorldTest.cpp
+	${SAMPLES_ROOT}/Tests/Rig/BigWorldTest.h
 	${SAMPLES_ROOT}/Tests/Rig/CreateRigTest.cpp
 	${SAMPLES_ROOT}/Tests/Rig/CreateRigTest.h
 	${SAMPLES_ROOT}/Tests/Rig/KinematicRigTest.cpp
@@ -135,6 +145,8 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/Rig/PoweredRigTest.h
 	${SAMPLES_ROOT}/Tests/Rig/RigPileTest.cpp
 	${SAMPLES_ROOT}/Tests/Rig/RigPileTest.h
+	${SAMPLES_ROOT}/Tests/Rig/SkeletonMapperTest.cpp
+	${SAMPLES_ROOT}/Tests/Rig/SkeletonMapperTest.h
 	${SAMPLES_ROOT}/Tests/Test.cpp
 	${SAMPLES_ROOT}/Tests/Test.h
 	${SAMPLES_ROOT}/Tests/Tools/LoadSnapshotTest.cpp
@@ -201,6 +213,7 @@ set(SAMPLES_SRC_FILES
 	${SAMPLES_ROOT}/Tests/Water/WaterShapeTest.h
 	${SAMPLES_ROOT}/Utils/ContactListenerImpl.cpp
 	${SAMPLES_ROOT}/Utils/ContactListenerImpl.h
+	${SAMPLES_ROOT}/Utils/DebugRendererSP.h
 	${SAMPLES_ROOT}/Utils/RagdollLoader.cpp
 	${SAMPLES_ROOT}/Utils/RagdollLoader.h
 	${SAMPLES_ROOT}/Utils/ShapeCreator.cpp

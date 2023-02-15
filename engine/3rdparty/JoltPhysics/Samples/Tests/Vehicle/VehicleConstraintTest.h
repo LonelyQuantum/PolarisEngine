@@ -20,12 +20,17 @@ public:
 	virtual void				PrePhysicsUpdate(const PreUpdateParams &inParams) override;
 
 	virtual void				GetInitialCamera(CameraState &ioState) const override;
-	virtual Mat44				GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
+	virtual RMat44				GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
 
 	virtual void				CreateSettingsMenu(DebugUI *inUI, UIElement *inSubMenu) override;
 
 private:
-	static int					sCollisionMode;
+	static inline int			sCollisionMode = 1;
+	static inline bool			sFourWheelDrive = false;
+	static inline bool			sAntiRollbar = true;
+	static inline bool			sLimitedSlipDifferentials = true;
+	static inline float			sMaxEngineTorque = 500.0f;
+	static inline float			sClutchStrength = 10.0f;
 
 	Body *						mCarBody;									///< The vehicle
 	Ref<VehicleConstraint>		mVehicleConstraint;							///< The vehicle constraint

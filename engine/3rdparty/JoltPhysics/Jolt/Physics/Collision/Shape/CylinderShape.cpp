@@ -43,8 +43,8 @@ static const Vec3 cTopFace[] =
 	Vec3(-cSin45,	1.0f,	cSin45)
 };
 
-static const vector<Vec3> sUnitCylinderTriangles = []() { 
-	vector<Vec3> verts;
+static const std::vector<Vec3> sUnitCylinderTriangles = []() { 
+	std::vector<Vec3> verts;
 
 	const Vec3 bottom_offset(0.0f, -2.0f, 0.0f);
 
@@ -185,8 +185,9 @@ const ConvexShape::Support *CylinderShape::GetSupportFunction(ESupportMode inMod
 	return nullptr;
 }
 
-void CylinderShape::GetSupportingFace(Vec3Arg inDirection, Vec3Arg inScale, SupportingFace &outVertices) const
+void CylinderShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const
 {	
+	JPH_ASSERT(inSubShapeID.IsEmpty(), "Invalid subshape ID");
 	JPH_ASSERT(IsValidScale(inScale));
 
 	// Get scaled cylinder
@@ -206,15 +207,16 @@ void CylinderShape::GetSupportingFace(Vec3Arg inDirection, Vec3Arg inScale, Supp
 		float f = -scaled_radius / o;
 		float vx = x * f;
 		float vz = z * f;
-		outVertices.push_back(Vec3(vx, scaled_half_height, vz));
-		outVertices.push_back(Vec3(vx, -scaled_half_height, vz));
+		outVertices.push_back(inCenterOfMassTransform * Vec3(vx, scaled_half_height, vz));
+		outVertices.push_back(inCenterOfMassTransform * Vec3(vx, -scaled_half_height, vz));
 	}
 	else
 	{
 		// Hitting top or bottom
 		Vec3 multiplier = y < 0.0f? Vec3(scaled_radius, scaled_half_height, scaled_radius) : Vec3(-scaled_radius, -scaled_half_height, scaled_radius);
+		Mat44 transform = inCenterOfMassTransform.PreScaled(multiplier);
 		for (const Vec3 &v : cTopFace)
-			outVertices.push_back(multiplier * v);
+			outVertices.push_back(transform * v);
 	}
 }
 
@@ -264,7 +266,7 @@ AABox CylinderShape::GetLocalBounds() const
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void CylinderShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void CylinderShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
 	DebugRenderer::EDrawMode draw_mode = inDrawWireframe? DebugRenderer::EDrawMode::Wireframe : DebugRenderer::EDrawMode::Solid;
 	inRenderer->DrawCylinder(inCenterOfMassTransform * Mat44::sScale(inScale.Abs()), mHalfHeight, mRadius, inUseMaterialColors? GetMaterial()->GetDebugColor() : inColor, DebugRenderer::ECastShadow::On, draw_mode);
@@ -300,7 +302,7 @@ void CylinderShape::TransformShape(Mat44Arg inCenterOfMassTransform, Transformed
 {
 	Vec3 scale;
 	Mat44 transform = inCenterOfMassTransform.Decompose(scale);
-	TransformedShape ts(transform.GetTranslation(), transform.GetRotation().GetQuaternion(), this, BodyID(), SubShapeIDCreator());
+	TransformedShape ts(RVec3(transform.GetTranslation()), transform.GetRotation().GetQuaternion(), this, BodyID(), SubShapeIDCreator());
 	Vec3 abs_scale = scale.Abs();
 	float xz = 0.5f * (abs_scale.GetX() + abs_scale.GetZ());
 	ts.SetShapeScale(Vec3(xz, abs_scale.GetY(), xz));

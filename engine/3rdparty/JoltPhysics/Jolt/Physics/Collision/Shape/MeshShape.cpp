@@ -96,7 +96,11 @@ void MeshShapeSettings::Sanitize()
 		const IndexedTriangle &tri = mIndexedTriangles[t];
 		if (tri.IsDegenerate()										// Degenerate triangle
 			|| !triangles.insert(tri.GetLowestIndexFirst()).second) // Duplicate triangle
-			mIndexedTriangles.erase(mIndexedTriangles.begin() + t);
+		{
+			// The order of triangles doesn't matter (gets reordered while building the tree), so we can just swap the last triangle into this slot
+			mIndexedTriangles[t] = mIndexedTriangles.back();
+			mIndexedTriangles.pop_back();
+		}
 	}
 }
 
@@ -143,9 +147,9 @@ MeshShape::MeshShape(const MeshShapeSettings &inSettings, ShapeResult &outResult
 	if (!mMaterials.empty())
 	{
 		// Validate materials
-		if (mMaterials.size() > FLAGS_MATERIAL_MASK)
+		if (mMaterials.size() > (1 << FLAGS_MATERIAL_BITS))
 		{
-			outResult.SetError(StringFormat("Supporting max %d materials per mesh", FLAGS_ACTIVE_EDGE_MASK + 1));
+			outResult.SetError(StringFormat("Supporting max %d materials per mesh", 1 << FLAGS_MATERIAL_BITS));
 			return;
 		}
 		for (const IndexedTriangle &t : inSettings.mIndexedTriangles)
@@ -385,6 +389,30 @@ Vec3 MeshShape::GetSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg inLocal
 	return (v3 - v2).Cross(v1 - v2).Normalized();
 }
 
+void MeshShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const
+{
+	// Decode ID
+	const void *block_start;
+	uint32 triangle_idx;
+	DecodeSubShapeID(inSubShapeID, block_start, triangle_idx);
+
+	// Decode triangle	
+	const TriangleCodec::DecodingContext triangle_ctx(sGetTriangleHeader(mTree));
+	outVertices.resize(3);
+	triangle_ctx.GetTriangle(block_start, triangle_idx, outVertices[0], outVertices[1], outVertices[2]);
+
+	// Flip triangle if scaled inside out
+	if (ScaleHelpers::IsInsideOut(inScale))
+		swap(outVertices[1], outVertices[2]);
+
+	// Calculate transform with scale
+	Mat44 transform = inCenterOfMassTransform.PreScaled(inScale);
+
+	// Transform to world space
+	for (Vec3 &v : outVertices)
+		v = transform * v;
+}
+
 AABox MeshShape::GetLocalBounds() const
 {
 	const NodeCodec::Header *header = sGetNodeHeader(mTree);
@@ -472,7 +500,7 @@ JPH_INLINE void MeshShape::WalkTreePerTriangle(const SubShapeIDCreator &inSubSha
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void MeshShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void MeshShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
 	// Reset the batch if we switch coloring mode
 	if (mCachedTrianglesColoredPerGroup != sDrawTriangleGroups || mCachedUseMaterialColors != inUseMaterialColors)
@@ -553,7 +581,7 @@ void MeshShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform
 	{
 		struct Visitor
 		{
-			JPH_INLINE 			Visitor(DebugRenderer *inRenderer, Mat44Arg inTransform) :
+			JPH_INLINE 			Visitor(DebugRenderer *inRenderer, RMat44Arg inTransform) :
 				mRenderer(inRenderer),
 				mTransform(inTransform)
 			{
@@ -590,8 +618,8 @@ void MeshShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform
 					// Loop through edges
 					for (uint edge_idx = 0; edge_idx < 3; ++edge_idx)
 					{
-						Vec3 v1 = mTransform * v[edge_idx];
-						Vec3 v2 = mTransform * v[(edge_idx + 1) % 3];
+						RVec3 v1 = mTransform * v[edge_idx];
+						RVec3 v2 = mTransform * v[(edge_idx + 1) % 3];
 
 						// Draw active edge as a green arrow, other edges as grey
 						if (*f & (1 << (edge_idx + FLAGS_ACTIVE_EGDE_SHIFT)))
@@ -603,10 +631,10 @@ void MeshShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform
 			}
 
 			DebugRenderer *	mRenderer;
-			Mat44			mTransform;
+			RMat44			mTransform;
 		};
 
-		Visitor visitor { inRenderer, inCenterOfMassTransform * Mat44::sScale(inScale) };
+		Visitor visitor { inRenderer, inCenterOfMassTransform.PreScaled(inScale) };
 		WalkTree(visitor);
 	}
 }

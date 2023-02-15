@@ -45,6 +45,17 @@ RotatedTranslatedShape::RotatedTranslatedShape(const RotatedTranslatedShapeSetti
 	outResult.Set(this);
 }
 
+RotatedTranslatedShape::RotatedTranslatedShape(Vec3Arg inPosition, QuatArg inRotation, const Shape *inShape) :
+	DecoratedShape(EShapeSubType::RotatedTranslated, inShape)
+{
+	// Calculate center of mass position
+	mCenterOfMass = inPosition + inRotation * mInnerShape->GetCenterOfMass(); 
+
+	// Store rotation (position is always zero because we center around the center of mass)
+	mRotation = inRotation;
+	mIsRotationIdentity = mRotation.IsClose(Quat::sIdentity());
+}
+
 MassProperties RotatedTranslatedShape::GetMassProperties() const
 {
 	// Rotate inertia of child into place
@@ -69,7 +80,7 @@ TransformedShape RotatedTranslatedShape::GetSubShapeTransformedShape(const SubSh
 	// We don't use any bits in the sub shape ID
 	outRemainder = inSubShapeID;
 
-	TransformedShape ts(inPositionCOM, inRotation * mRotation, mInnerShape, BodyID());
+	TransformedShape ts(RVec3(inPositionCOM), inRotation * mRotation, mInnerShape, BodyID());
 	ts.SetShapeScale(TransformScale(inScale));
 	return ts;
 }
@@ -84,27 +95,33 @@ Vec3 RotatedTranslatedShape::GetSurfaceNormal(const SubShapeID &inSubShapeID, Ve
 	return transform.Multiply3x3Transposed(normal);
 }
 
-void RotatedTranslatedShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy) const
+void RotatedTranslatedShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const
+{
+	Mat44 transform = Mat44::sRotation(mRotation);
+	mInnerShape->GetSupportingFace(inSubShapeID, transform.Multiply3x3Transposed(inDirection), TransformScale(inScale), inCenterOfMassTransform * transform, outVertices);
+}
+
+void RotatedTranslatedShape::GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, RVec3Arg inBaseOffset)) const
 {
 	// Get center of mass transform of child
 	Mat44 transform = inCenterOfMassTransform * Mat44::sRotation(mRotation);
 
 	// Recurse to child
-	mInnerShape->GetSubmergedVolume(transform, TransformScale(inScale), inSurface, outTotalVolume, outSubmergedVolume, outCenterOfBuoyancy);
+	mInnerShape->GetSubmergedVolume(transform, TransformScale(inScale), inSurface, outTotalVolume, outSubmergedVolume, outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, inBaseOffset));
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void RotatedTranslatedShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void RotatedTranslatedShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
 	mInnerShape->Draw(inRenderer, inCenterOfMassTransform * Mat44::sRotation(mRotation), TransformScale(inScale), inColor, inUseMaterialColors, inDrawWireframe);
 }
 
-void RotatedTranslatedShape::DrawGetSupportFunction(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inDrawSupportDirection) const
+void RotatedTranslatedShape::DrawGetSupportFunction(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inDrawSupportDirection) const
 {
 	mInnerShape->DrawGetSupportFunction(inRenderer, inCenterOfMassTransform * Mat44::sRotation(mRotation), TransformScale(inScale), inColor, inDrawSupportDirection);
 }
 
-void RotatedTranslatedShape::DrawGetSupportingFace(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale) const
+void RotatedTranslatedShape::DrawGetSupportingFace(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale) const
 {
 	mInnerShape->DrawGetSupportingFace(inRenderer, inCenterOfMassTransform * Mat44::sRotation(mRotation), TransformScale(inScale));
 }

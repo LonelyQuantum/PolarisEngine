@@ -136,7 +136,7 @@ Mat44 VehicleConstraint::GetWheelLocalTransform(uint inWheelIndex, Vec3Arg inWhe
 	return rotational_to_local * Mat44::sRotationX(wheel->mAngle) * wheel_to_rotational;
 }
 
-Mat44 VehicleConstraint::GetWheelWorldTransform(uint inWheelIndex, Vec3Arg inWheelRight, Vec3Arg inWheelUp) const
+RMat44 VehicleConstraint::GetWheelWorldTransform(uint inWheelIndex, Vec3Arg inWheelRight, Vec3Arg inWheelUp) const
 {
 	return mBody->GetWorldTransform() * GetWheelLocalTransform(inWheelIndex, inWheelRight, inWheelUp);
 }
@@ -165,7 +165,7 @@ void VehicleConstraint::OnStep(float inDeltaTime, PhysicsSystem &inPhysicsSystem
 		w->mContactLength = max_len;
 
 		// Test collision to find the floor
-		Vec3 origin = mBody->GetCenterOfMassPosition() + mBody->GetRotation() * (settings->mPosition - mBody->GetShape()->GetCenterOfMass());
+		RVec3 origin = mBody->GetCenterOfMassPosition() + mBody->GetRotation() * (settings->mPosition - mBody->GetShape()->GetCenterOfMass());
 		w->mWSDirection = mBody->GetRotation() * settings->mDirection;
 		if (mVehicleCollisionTester->Collide(inPhysicsSystem, wheel_index, origin, w->mWSDirection, max_len, mBody->GetID(), w->mContactBody, w->mContactSubShapeID, w->mContactPosition, w->mContactNormal, w->mContactLength))
 		{
@@ -212,10 +212,14 @@ void VehicleConstraint::OnStep(float inDeltaTime, PhysicsSystem &inPhysicsSystem
 	mController->PostCollide(inDeltaTime, inPhysicsSystem);
 
 	// If the wheels are rotating, we don't want to go to sleep yet
-	bool allow_sleep = true;
-	for (const Wheel *w : mWheels)
-		if (abs(w->mAngularVelocity) > DegreesToRadians(10.0f))
-			allow_sleep = false;
+	bool allow_sleep = mController->AllowSleep();
+	if (allow_sleep)
+		for (const Wheel *w : mWheels)
+			if (abs(w->mAngularVelocity) > DegreesToRadians(10.0f))
+			{
+				allow_sleep = false;
+				break;
+			}
 	if (mBody->GetAllowSleeping() != allow_sleep)
 		mBody->SetAllowSleeping(allow_sleep);
 }
@@ -275,14 +279,14 @@ void VehicleConstraint::BuildIslands(uint32 inConstraintIndex, IslandBuilder &io
 	ioBuilder.LinkConstraint(inConstraintIndex, mBody->GetIndexInActiveBodiesInternal(), min_active_index); 
 }
 
-void VehicleConstraint::CalculateWheelContactPoint(Mat44Arg inBodyTransform, const Wheel &inWheel, Vec3 &outR1PlusU, Vec3 &outR2) const
+void VehicleConstraint::CalculateWheelContactPoint(RMat44Arg inBodyTransform, const Wheel &inWheel, Vec3 &outR1PlusU, Vec3 &outR2) const
 {
-	Vec3 contact_pos = inBodyTransform * (inWheel.mSettings->mPosition + inWheel.mSettings->mDirection * inWheel.mContactLength);
-	outR1PlusU = contact_pos - mBody->GetCenterOfMassPosition();
-	outR2 = contact_pos - mBody->GetCenterOfMassPosition();
+	RVec3 contact_pos = inBodyTransform * (inWheel.mSettings->mPosition + inWheel.mSettings->mDirection * inWheel.mContactLength);
+	outR1PlusU = Vec3(contact_pos - mBody->GetCenterOfMassPosition());
+	outR2 = Vec3(contact_pos - inWheel.mContactBody->GetCenterOfMassPosition());
 }
 
-void VehicleConstraint::CalculatePitchRollConstraintProperties(float inDeltaTime, Mat44Arg inBodyTransform)
+void VehicleConstraint::CalculatePitchRollConstraintProperties(float inDeltaTime, RMat44Arg inBodyTransform)
 {
 	// Check if a limit was specified
 	if (mCosMaxPitchRollAngle < JPH_PI)
@@ -309,7 +313,7 @@ void VehicleConstraint::CalculatePitchRollConstraintProperties(float inDeltaTime
 
 void VehicleConstraint::SetupVelocityConstraint(float inDeltaTime)
 {
-	Mat44 body_transform = mBody->GetWorldTransform();
+	RMat44 body_transform = mBody->GetWorldTransform();
 
 	for (Wheel *w : mWheels)
 		if (w->mContactBody != nullptr)
@@ -383,7 +387,8 @@ bool VehicleConstraint::SolveVelocityConstraint(float inDeltaTime)
 	impulse |= mController->SolveLongitudinalAndLateralConstraints(inDeltaTime);
 
 	// Apply the pitch / roll constraint to avoid the vehicle from toppling over
-	impulse |= mPitchRollPart.SolveVelocityConstraint(*mBody, Body::sFixedToWorld, mPitchRollRotationAxis, 0, FLT_MAX);
+	if (mPitchRollPart.IsActive())
+		impulse |= mPitchRollPart.SolveVelocityConstraint(*mBody, Body::sFixedToWorld, mPitchRollRotationAxis, 0, FLT_MAX);
 
 	return impulse;
 }
@@ -392,7 +397,7 @@ bool VehicleConstraint::SolvePositionConstraint(float inDeltaTime, float inBaumg
 {
 	bool impulse = false;
 
-	Mat44 body_transform = mBody->GetWorldTransform();
+	RMat44 body_transform = mBody->GetWorldTransform();
 
 	for (Wheel *w : mWheels)
 		if (w->mContactBody != nullptr)
@@ -402,8 +407,8 @@ bool VehicleConstraint::SolvePositionConstraint(float inDeltaTime, float inBaumg
 			// Calculate new contact length as the body may have moved
 			// TODO: This assumes that only the vehicle moved and not the ground (contact point/normal is stored in world space)
 			Vec3 ws_direction = body_transform.Multiply3x3(settings->mDirection);
-			Vec3 ws_position = body_transform * settings->mPosition;
-			float contact_length = (w->mContactPosition - ws_position).Dot(ws_direction);
+			RVec3 ws_position = body_transform * settings->mPosition;
+			float contact_length = Vec3(w->mContactPosition - ws_position).Dot(ws_direction);
 
 			// Check if we reached the 'max up' position
 			float max_up_error = contact_length - settings->mRadius - settings->mSuspensionMinLength;

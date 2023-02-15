@@ -124,11 +124,17 @@ const ConvexShape::Support *BoxShape::GetSupportFunction(ESupportMode inMode, Su
 	return nullptr;
 }
 
-void BoxShape::GetSupportingFace(Vec3Arg inDirection, Vec3Arg inScale, SupportingFace &outVertices) const 
+void BoxShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const 
 { 
+	JPH_ASSERT(inSubShapeID.IsEmpty(), "Invalid subshape ID");
+
 	Vec3 scaled_half_extent = inScale.Abs() * mHalfExtent;
 	AABox box(-scaled_half_extent, scaled_half_extent);
 	box.GetSupportingFace(inDirection, outVertices); 
+
+	// Transform to world space
+	for (Vec3 &v : outVertices)
+		v = inCenterOfMassTransform * v;
 }
 
 MassProperties BoxShape::GetMassProperties() const
@@ -152,7 +158,7 @@ Vec3 BoxShape::GetSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg inLocalS
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void BoxShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void BoxShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
 	DebugRenderer::EDrawMode draw_mode = inDrawWireframe? DebugRenderer::EDrawMode::Wireframe : DebugRenderer::EDrawMode::Solid;
 	inRenderer->DrawBox(inCenterOfMassTransform * Mat44::sScale(inScale.Abs()), GetLocalBounds(), inUseMaterialColors? GetMaterial()->GetDebugColor() : inColor, DebugRenderer::ECastShadow::On, draw_mode);

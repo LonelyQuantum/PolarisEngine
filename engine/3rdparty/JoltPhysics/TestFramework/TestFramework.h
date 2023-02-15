@@ -5,9 +5,16 @@
 
 #include <Jolt/Jolt.h>
 
+// Targetting Windows 10 and above
+#define WINVER 0x0A00
+#define _WIN32_WINNT 0x0A00
+
 // Disable common warnings
 JPH_SUPPRESS_WARNINGS
 JPH_CLANG_SUPPRESS_WARNING("-Wheader-hygiene")
+#ifdef JPH_DOUBLE_PRECISION
+JPH_CLANG_SUPPRESS_WARNING("-Wdouble-promotion")
+#endif // JPH_DOUBLE_PRECISION
 
 JPH_SUPPRESS_WARNING_PUSH
 JPH_MSVC_SUPPRESS_WARNING(5039) // winbase.h(13179): warning C5039: 'TpSetCallbackCleanupGroup': pointer or reference to potentially throwing function passed to 'extern "C"' function under -EHc. Undefined behavior may occur if this function throws an exception.
@@ -29,3 +36,5 @@ JPH_SUPPRESS_WARNING_POP
 
 using Microsoft::WRL::ComPtr;
 using namespace JPH;
+using namespace JPH::literals;
+using namespace std;

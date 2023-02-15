@@ -64,21 +64,21 @@ public:
 	// See Shape::GetSurfaceNormal
 	virtual Vec3			GetSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg inLocalSurfacePosition) const override;
 
+	// See Shape::GetSupportingFace
+	virtual void			GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const override;
+
 	// See ConvexShape::GetSupportFunction
 	virtual const Support *	GetSupportFunction(ESupportMode inMode, SupportBuffer &inBuffer, Vec3Arg inScale) const override;
 
-	// See ConvexShape::GetSupportingFace
-	virtual void			GetSupportingFace(Vec3Arg inDirection, Vec3Arg inScale, SupportingFace &outVertices) const override;
-
 	// See Shape::GetSubmergedVolume
-	virtual void			GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy) const override;
+	virtual void			GetSubmergedVolume(Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, const Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, RVec3Arg inBaseOffset)) const override;
 
 #ifdef JPH_DEBUG_RENDERER
 	// See Shape::Draw
-	virtual void			Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const override;
+	virtual void			Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const override;
 
 	/// Debugging helper draw function that draws how all points are moved when a shape is shrunk by the convex radius
-	void					DrawShrunkShape(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale) const;
+	void					DrawShrunkShape(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale) const;
 #endif // JPH_DEBUG_RENDERER
 
 	// See Shape::CastRay
@@ -108,6 +108,12 @@ public:
 
 	/// Get the planes of this convex hull
 	const Array<Plane> &	GetPlanes() const													{ return mPlanes; }
+
+	/// Get the number of vertices in this convex hull
+	inline uint				GetNumPoints() const												{ return (uint)mPoints.size(); }
+
+	/// Get a vertex of this convex hull relative to the center of mass
+	inline Vec3				GetPoint(uint inIndex) const										{ return mPoints[inIndex].mPosition; }
 
 	// Register shape functions with the registry
 	static void				sRegister();
@@ -150,7 +156,7 @@ private:
 	};
 
 	static_assert(sizeof(Point) == 32, "Unexpected size");
-	static_assert(alignof(Point) == 16, "Unexpected alignment");
+	static_assert(alignof(Point) == JPH_VECTOR_ALIGNMENT, "Unexpected alignment");
 
 	Vec3					mCenterOfMass;				///< Center of mass of this convex hull
 	Mat44					mInertia;					///< Inertia matrix assuming density is 1 (needs to be multiplied by density)

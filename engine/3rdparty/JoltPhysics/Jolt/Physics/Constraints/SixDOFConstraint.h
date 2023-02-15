@@ -43,12 +43,12 @@ public:
 	EConstraintSpace			mSpace = EConstraintSpace::WorldSpace;
 
 	/// Body 1 constraint reference frame (space determined by mSpace)
-	Vec3						mPosition1 = Vec3::sZero();
+	RVec3						mPosition1 = RVec3::sZero();
 	Vec3						mAxisX1 = Vec3::sAxisX();
 	Vec3						mAxisY1 = Vec3::sAxisY();
 
 	/// Body 2 constraint reference frame (space determined by mSpace)
-	Vec3						mPosition2 = Vec3::sZero();
+	RVec3						mPosition2 = RVec3::sZero();
 	Vec3						mAxisX2 = Vec3::sAxisX();
 	Vec3						mAxisY2 = Vec3::sAxisY();
 	
@@ -122,6 +122,13 @@ public:
 	/// Update the rotational limits for this constraint, note that this won't change if axis are free or not.
 	void						SetRotationLimits(Vec3Arg inLimitMin, Vec3Arg inLimitMax);
 
+	/// Get constraint Limits
+	float						GetLimitsMin(EAxis inAxis) const							{ return mLimitMin[inAxis]; }
+	float						GetLimitsMax(EAxis inAxis) const							{ return mLimitMax[inAxis]; }
+
+	inline bool					IsFixedAxis(EAxis inAxis) const								{ return (mFixedAxis & (1 << inAxis)) != 0; }
+	inline bool					IsFreeAxis(EAxis inAxis) const								{ return (mFreeAxis & (1 << inAxis)) != 0; }
+
 	/// Set the max friction for each axis
 	void						SetMaxFriction(EAxis inAxis, float inFriction);
 	float						GetMaxFriction(EAxis inAxis) const							{ return mMaxFriction[inAxis]; }
@@ -179,13 +186,11 @@ private:
 	void						CacheRotationMotorActive();
 
 	// Constraint settings helper functions
-	inline bool					IsAxisFixed(EAxis inAxis) const								{ return (mFixedAxis & (1 << inAxis)) != 0; }
-	inline bool					IsAxisFree(EAxis inAxis) const								{ return (mFreeAxis & (1 << inAxis)) != 0; }
 	inline bool					IsTranslationConstrained() const							{ return (mFreeAxis & 0b111) != 0b111; }
 	inline bool					IsTranslationFullyConstrained() const						{ return (mFixedAxis & 0b111) == 0b111; }
 	inline bool					IsRotationConstrained() const								{ return (mFreeAxis & 0b111000) != 0b111000; }
 	inline bool					IsRotationFullyConstrained() const							{ return (mFixedAxis & 0b111000) == 0b111000; }
-	inline bool					HasFriction(EAxis inAxis) const								{ return !IsAxisFixed(inAxis) && mMaxFriction[inAxis] > 0.0f; }
+	inline bool					HasFriction(EAxis inAxis) const								{ return !IsFixedAxis(inAxis) && mMaxFriction[inAxis] > 0.0f; }
 
 	// CONFIGURATION PROPERTIES FOLLOW
 

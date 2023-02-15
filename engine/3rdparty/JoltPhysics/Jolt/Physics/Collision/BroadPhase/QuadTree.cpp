@@ -13,6 +13,12 @@
 #include <Jolt/Geometry/RayAABox.h>
 #include <Jolt/Geometry/OrientedBox.h>
 
+#ifdef JPH_DUMP_BROADPHASE_TREE
+JPH_SUPPRESS_WARNINGS_STD_BEGIN
+#include <fstream>
+JPH_SUPPRESS_WARNINGS_STD_END
+#endif // JPH_DUMP_BROADPHASE_TREE
+
 JPH_NAMESPACE_BEGIN
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -497,7 +503,7 @@ QuadTree::NodeID QuadTree::BuildTree(const BodyVector &inBodies, TrackingVector 
 
 	// Calculate centers of all bodies that are to be inserted
 	Vec3 *centers = new Vec3 [inNumber];
-	JPH_ASSERT(IsAligned(centers, 16));
+	JPH_ASSERT(IsAligned(centers, JPH_VECTOR_ALIGNMENT));
 	Vec3 *c = centers;
 	for (const NodeID *n = ioNodeIDs, *n_end = ioNodeIDs + inNumber; n < n_end; ++n, ++c)
 		*c = GetNodeOrBodyBounds(inBodies, *n).GetCenter();
@@ -1341,7 +1347,7 @@ void QuadTree::CastAABox(const AABoxCast &inBox, CastShapeBodyCollector &ioColle
 	WalkTree(inObjectLayerFilter, inTracking, visitor JPH_IF_TRACK_BROADPHASE_STATS(, mCastAABoxStats));
 }
 
-void QuadTree::FindCollidingPairs(const BodyVector &inBodies, const BodyID *inActiveBodies, int inNumActiveBodies, float inSpeculativeContactDistance, BodyPairCollector &ioPairCollector, ObjectLayerPairFilter inObjectLayerPairFilter) const
+void QuadTree::FindCollidingPairs(const BodyVector &inBodies, const BodyID *inActiveBodies, int inNumActiveBodies, float inSpeculativeContactDistance, BodyPairCollector &ioPairCollector, const ObjectLayerPairFilter &inObjectLayerPairFilter) const
 {
 	// Note that we don't lock the tree at this point. We know that the tree is not going to be swapped or deleted while finding collision pairs due to the way the jobs are scheduled in the PhysicsSystem::Update.
 	// We double check this at the end of the function.
@@ -1380,7 +1386,7 @@ void QuadTree::FindCollidingPairs(const BodyVector &inBodies, const BodyID *inAc
 				{			
 					// Collision between dynamic pairs need to be picked up only once
 					const Body &body2 = *inBodies[b2_id.GetIndex()];
-					if (inObjectLayerPairFilter(body1.GetObjectLayer(), body2.GetObjectLayer())
+					if (inObjectLayerPairFilter.ShouldCollide(body1.GetObjectLayer(), body2.GetObjectLayer())
 						&& Body::sFindCollidingPairsCanCollide(body1, body2)
 						&& bounds1.Overlaps(body2.GetWorldSpaceBounds())) // In the broadphase we widen the bounding box when a body moves, do a final check to see if the bounding boxes actually overlap
 					{
@@ -1529,8 +1535,8 @@ void QuadTree::ValidateTree(const BodyVector &inBodies, const TrackingVector &in
 void QuadTree::DumpTree(const NodeID &inRoot, const char *inFileNamePrefix) const
 {
 	// Open DOT file
-	ofstream f;
-	f.open(StringFormat("%s.dot", inFileNamePrefix), ofstream::out | ofstream::trunc);
+	std::ofstream f;
+	f.open(StringFormat("%s.dot", inFileNamePrefix).c_str(), std::ofstream::out | std::ofstream::trunc);
 	if (!f.is_open())
 		return;
 

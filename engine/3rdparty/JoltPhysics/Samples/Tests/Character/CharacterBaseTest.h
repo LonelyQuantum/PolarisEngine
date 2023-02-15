@@ -25,7 +25,7 @@ public:
 	virtual void			GetInitialCamera(CameraState &ioState) const override;
 
 	// Override to specify a camera pivot point and orientation (world space)
-	virtual Mat44			GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
+	virtual RMat44			GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
 
 	// Optional settings menu
 	virtual bool			HasSettingsMenu() const override							{ return true; }
@@ -37,21 +37,27 @@ public:
 
 protected:
 	// Get position of the character
-	virtual Vec3			GetCharacterPosition() const = 0;
+	virtual RVec3			GetCharacterPosition() const = 0;
 
 	// Handle user input to the character
 	virtual void			HandleInput(Vec3Arg inMovementDirection, bool inJump, bool inSwitchStance, float inDeltaTime) = 0;
 
 	// Draw the character state
-	void					DrawCharacterState(const CharacterBase *inCharacter, Mat44Arg inCharacterTransform, Vec3Arg inCharacterVelocity);
+	void					DrawCharacterState(const CharacterBase *inCharacter, RMat44Arg inCharacterTransform, Vec3Arg inCharacterVelocity);
+
+	// Add test configuration settings
+	virtual void			AddConfigurationSettings(DebugUI *inUI, UIElement *inSubMenu) { /* Nothing by default */ }
 
 	// Character size
 	static constexpr float	cCharacterHeightStanding = 1.35f;
 	static constexpr float	cCharacterRadiusStanding = 0.3f;
 	static constexpr float	cCharacterHeightCrouching = 0.8f;
 	static constexpr float	cCharacterRadiusCrouching = 0.3f;
-	static constexpr float	cCharacterSpeed = 6.0f;
-	static constexpr float	cJumpSpeed = 4.0f;
+
+	// Character movement properties
+	inline static bool		sControlMovementDuringJump = true;					///< If false the character cannot change movement direction in mid air
+	inline static float		sCharacterSpeed = 6.0f;
+	inline static float		sJumpSpeed = 4.0f;
 
 	// The different stances for the character
 	RefConst<Shape>			mStandingShape;
@@ -61,7 +67,21 @@ protected:
 	Array<BodyID>			mRampBlocks;
 	float					mRampBlocksTimeLeft = 0.0f;
 
+	// Conveyor belt body
+	BodyID					mConveyorBeltBody;
+
 private:
+	// Shape types
+	enum class EType
+	{
+		Capsule,
+		Cylinder,
+		Box
+	};
+
+	// Character shape type
+	static inline EType		sShapeType = EType::Capsule;
+
 	// List of possible scene names
 	static const char *		sScenes[];
 

@@ -77,7 +77,7 @@ void SixDOFConstraint::UpdateRotationLimits()
 {
 	// Make values sensible
 	for (int i = 3; i < 6; ++i)
-		if (IsAxisFixed((EAxis)i))
+		if (IsFixedAxis((EAxis)i))
 			mLimitMin[i] = mLimitMax[i] = 0.0f;
 		else
 		{
@@ -94,9 +94,7 @@ void SixDOFConstraint::UpdateRotationLimits()
 }
 
 SixDOFConstraint::SixDOFConstraint(Body &inBody1, Body &inBody2, const SixDOFConstraintSettings &inSettings) :
-	TwoBodyConstraint(inBody1, inBody2, inSettings),
-	mLocalSpacePosition1(inSettings.mPosition1),
-	mLocalSpacePosition2(inSettings.mPosition2)
+	TwoBodyConstraint(inBody1, inBody2, inSettings)
 {
 	// Assert that input adheres to the limitations of this class
 	JPH_ASSERT(inSettings.mLimitMin[EAxis::RotationY] == -inSettings.mLimitMax[EAxis::RotationY]);
@@ -115,11 +113,16 @@ SixDOFConstraint::SixDOFConstraint(Body &inBody1, Body &inBody2, const SixDOFCon
 	if (inSettings.mSpace == EConstraintSpace::WorldSpace)
 	{
 		// If all properties were specified in world space, take them to local space now
-		mLocalSpacePosition1 = inBody1.GetInverseCenterOfMassTransform() * mLocalSpacePosition1;
+		mLocalSpacePosition1 = Vec3(inBody1.GetInverseCenterOfMassTransform() * inSettings.mPosition1);
 		mConstraintToBody1 = inBody1.GetRotation().Conjugated() * mConstraintToBody1;
 
-		mLocalSpacePosition2 = inBody2.GetInverseCenterOfMassTransform() * mLocalSpacePosition2;
+		mLocalSpacePosition2 = Vec3(inBody2.GetInverseCenterOfMassTransform() * inSettings.mPosition2);
 		mConstraintToBody2 = inBody2.GetRotation().Conjugated() * mConstraintToBody2;
+	}
+	else
+	{
+		mLocalSpacePosition1 = Vec3(inSettings.mPosition1);
+		mLocalSpacePosition2 = Vec3(inSettings.mPosition2);
 	}
 
 	// Cache which axis are fixed and which ones are free
@@ -185,11 +188,11 @@ void SixDOFConstraint::SetMaxFriction(EAxis inAxis, float inFriction)
 
 void SixDOFConstraint::GetPositionConstraintProperties(Vec3 &outR1PlusU, Vec3 &outR2, Vec3 &outU) const
 {
-	Vec3 p1 = mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1;
-	Vec3 p2 = mBody2->GetCenterOfMassTransform() * mLocalSpacePosition2;
-	outR1PlusU = p2 - mBody1->GetCenterOfMassPosition(); // r1 + u = (p1 - x1) + (p2 - p1) = p2 - x1
-	outR2 = p2 - mBody2->GetCenterOfMassPosition();
-	outU = p2 - p1;
+	RVec3 p1 = mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1;
+	RVec3 p2 = mBody2->GetCenterOfMassTransform() * mLocalSpacePosition2;
+	outR1PlusU = Vec3(p2 - mBody1->GetCenterOfMassPosition()); // r1 + u = (p1 - x1) + (p2 - p1) = p2 - x1
+	outR2 = Vec3(p2 - mBody2->GetCenterOfMassPosition());
+	outU = Vec3(p2 - p1);
 }
 
 Quat SixDOFConstraint::GetRotationInConstraintSpace() const
@@ -307,12 +310,12 @@ void SixDOFConstraint::SetupVelocityConstraint(float inDeltaTime)
 
 			// Setup limit constraint
 			bool constraint_active = false;
-			if (IsAxisFixed(axis))
+			if (IsFixedAxis(axis))
 			{
 				// When constraint is fixed it is always active
 				constraint_active = true;
 			}
-			else if (!IsAxisFree(axis))
+			else if (!IsFreeAxis(axis))
 			{
 				// When constraint is limited, it is only active when outside of the allowed range
 				float d = translation_axis.Dot(u);
@@ -567,9 +570,9 @@ bool SixDOFConstraint::SolveVelocityConstraint(float inDeltaTime)
 				// If the axis is not fixed it must be limited (or else the constraint would not be active)
 				// Calculate the min and max constraint force based on on which side we're limited
 				float limit_min = -FLT_MAX, limit_max = FLT_MAX;
-				if (!IsAxisFixed(EAxis(EAxis::TranslationX + i)))
+				if (!IsFixedAxis(EAxis(EAxis::TranslationX + i)))
 				{
-					JPH_ASSERT(!IsAxisFree(EAxis(EAxis::TranslationX + i)));
+					JPH_ASSERT(!IsFreeAxis(EAxis(EAxis::TranslationX + i)));
 					if (mDisplacement[i] <= mLimitMin[i])
 						limit_min = 0;
 					else if (mDisplacement[i] >= mLimitMax[i])
@@ -640,9 +643,9 @@ bool SixDOFConstraint::SolvePositionConstraint(float inDeltaTime, float inBaumga
 			// Determine position error
 			float error = 0.0f;
 			EAxis axis(EAxis(EAxis::TranslationX + i));
-			if (IsAxisFixed(axis))
+			if (IsFixedAxis(axis))
 				error = u.Dot(translation_axis);
-			else if (!IsAxisFree(axis))
+			else if (!IsFreeAxis(axis))
 			{
 				float displacement = u.Dot(translation_axis);
 				if (displacement <= mLimitMin[axis])
@@ -667,12 +670,12 @@ bool SixDOFConstraint::SolvePositionConstraint(float inDeltaTime, float inBaumga
 void SixDOFConstraint::DrawConstraint(DebugRenderer *inRenderer) const
 {
 	// Get constraint properties in world space
-	Vec3 position1 = mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1;
+	RVec3 position1 = mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1;
 	Quat rotation1 = mBody1->GetRotation() * mConstraintToBody1;
 	Quat rotation2 = mBody2->GetRotation() * mConstraintToBody2;
 
 	// Draw constraint orientation
-	inRenderer->DrawCoordinateSystem(Mat44::sRotationTranslation(rotation1, position1), mDrawConstraintSize);
+	inRenderer->DrawCoordinateSystem(RMat44::sRotationTranslation(rotation1, position1), mDrawConstraintSize);
 
 	if ((IsRotationConstrained() || mRotationPositionMotorActive != 0) && !IsRotationFullyConstrained())
 	{
@@ -704,7 +707,7 @@ void SixDOFConstraint::DrawConstraint(DebugRenderer *inRenderer) const
 void SixDOFConstraint::DrawConstraintLimits(DebugRenderer *inRenderer) const
 {
 	// Get matrix that transforms from constraint space to world space
-	Mat44 constraint_body1_to_world = Mat44::sRotationTranslation(mBody1->GetRotation() * mConstraintToBody1, mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1);
+	RMat44 constraint_body1_to_world = RMat44::sRotationTranslation(mBody1->GetRotation() * mConstraintToBody1, mBody1->GetCenterOfMassTransform() * mLocalSpacePosition1);
 
 	// Draw limits
 	inRenderer->DrawSwingLimits(constraint_body1_to_world, mLimitMax[EAxis::RotationY], mLimitMax[EAxis::RotationZ], mDrawConstraintSize, Color::sGreen, DebugRenderer::ECastShadow::Off);
@@ -759,10 +762,10 @@ Ref<ConstraintSettings> SixDOFConstraint::GetConstraintSettings() const
 	SixDOFConstraintSettings *settings = new SixDOFConstraintSettings;
 	ToConstraintSettings(*settings);
 	settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-	settings->mPosition1 = mLocalSpacePosition1;
+	settings->mPosition1 = RVec3(mLocalSpacePosition1);
 	settings->mAxisX1 = mConstraintToBody1.RotateAxisX();
 	settings->mAxisY1 = mConstraintToBody1.RotateAxisY();
-	settings->mPosition2 = mLocalSpacePosition2;
+	settings->mPosition2 = RVec3(mLocalSpacePosition2);
 	settings->mAxisX2 = mConstraintToBody2.RotateAxisX();
 	settings->mAxisY2 = mConstraintToBody2.RotateAxisY();
 	memcpy(settings->mLimitMin, mLimitMin, sizeof(mLimitMin)); 

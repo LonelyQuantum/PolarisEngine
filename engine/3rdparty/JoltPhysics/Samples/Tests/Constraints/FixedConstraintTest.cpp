@@ -35,7 +35,7 @@ void FixedConstraintTest::Initialize()
 	{
 		CollisionGroup::GroupID group_id = CollisionGroup::GroupID(randomness);
 
-		Vec3 position(0, 25.0f, -randomness * 20.0f);
+		RVec3 position(0, 25.0f, -randomness * 20.0f);
 		Body &top = *mBodyInterface->CreateBody(BodyCreationSettings(box, position, Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING));
 		top.SetCollisionGroup(CollisionGroup(group_filter, group_id, 0));
 		mBodyInterface->AddBody(top.GetID(), EActivation::DontActivate);
@@ -63,7 +63,7 @@ void FixedConstraintTest::Initialize()
 			mBodyInterface->AddBody(segment.GetID(), EActivation::Activate);
 
 			FixedConstraintSettings settings;
-			settings.SetPoint(*prev, segment);
+			settings.mAutoDetectPoint = true;
 			Ref<Constraint> c = settings.Create(*prev, segment);
 			mPhysicsSystem->AddConstraint(c);
 					
@@ -73,25 +73,25 @@ void FixedConstraintTest::Initialize()
 
 	{
 		// Two light bodies attached to a heavy body (gives issues if the wrong anchor point is chosen)
-		Body *light1 = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(0.1f)), Vec3(-5.0f, 7.0f, -5.2f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
+		Body *light1 = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(0.1f)), RVec3(-5.0f, 7.0f, -5.2f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
 		mBodyInterface->AddBody(light1->GetID(), EActivation::Activate);
-		Body *heavy = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(5.0f)), Vec3(-5.0f, 7.0f, 0.0f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
+		Body *heavy = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(5.0f)), RVec3(-5.0f, 7.0f, 0.0f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
 		mBodyInterface->AddBody(heavy->GetID(), EActivation::Activate);
-		Body *light2 = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(0.1f)), Vec3(-5.0f, 7.0f, 5.2f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
+		Body *light2 = mBodyInterface->CreateBody(BodyCreationSettings(new BoxShape(Vec3::sReplicate(0.1f)), RVec3(-5.0f, 7.0f, 5.2f), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
 		mBodyInterface->AddBody(light2->GetID(), EActivation::Activate);
 
 		FixedConstraintSettings light1_heavy;
-		light1_heavy.SetPoint(*light1, *heavy);
+		light1_heavy.mAutoDetectPoint = true;
 		mPhysicsSystem->AddConstraint(light1_heavy.Create(*light1, *heavy));
 
 		FixedConstraintSettings heavy_light2;
-		heavy_light2.SetPoint(*heavy, *light2);
+		heavy_light2.mAutoDetectPoint = true;
 		mPhysicsSystem->AddConstraint(heavy_light2.Create(*heavy, *light2));
 	}
 
 	{
 		// A tower of beams and crossbeams (note that it is not recommended to make constructs with this many fixed constraints, this is not always stable)
-		Vec3 base_position(0, 25, -40.0f);
+		RVec3 base_position(0, 25, -40.0f);
 		Quat base_rotation = Quat::sRotation(Vec3::sAxisZ(), -0.5f * JPH_PI);
 
 		Ref<BoxShape> pillar = new BoxShape(Vec3(0.1f, 1.0f, 0.1f), 0.0f);
@@ -126,7 +126,9 @@ void FixedConstraintTest::Initialize()
 				for (int j = 0; j < 2; ++j)
 				{
 					FixedConstraintSettings constraint;
-					constraint.SetPoint(*pillars[(i + j) % 4], *cross);
+					constraint.mAutoDetectPoint = true;
+					constraint.mNumVelocityStepsOverride = 64; // This structure needs more solver steps to be stable
+					constraint.mNumPositionStepsOverride = JPH_IF_NOT_DEBUG(64) JPH_IF_DEBUG(8); // In debug mode use less steps to preserve framerate (at the cost of stability)
 					mPhysicsSystem->AddConstraint(constraint.Create(*pillars[(i + j) % 4], *cross));
 				}
 
@@ -134,7 +136,9 @@ void FixedConstraintTest::Initialize()
 				if (prev_pillars[i] != nullptr)
 				{
 					FixedConstraintSettings constraint;
-					constraint.SetPoint(*prev_pillars[i], *pillars[i]);
+					constraint.mAutoDetectPoint = true;
+					constraint.mNumVelocityStepsOverride = 64;
+					constraint.mNumPositionStepsOverride = JPH_IF_NOT_DEBUG(64) JPH_IF_DEBUG(8);
 					mPhysicsSystem->AddConstraint(constraint.Create(*prev_pillars[i], *pillars[i]));
 				}
 
@@ -153,7 +157,7 @@ void FixedConstraintTest::Initialize()
 		for (int i = 0; i < 4; ++i)
 		{
 			FixedConstraintSettings constraint;
-			constraint.SetPoint(*prev_pillars[i], *top);
+			constraint.mAutoDetectPoint = true;
 			mPhysicsSystem->AddConstraint(constraint.Create(*prev_pillars[i], *top));
 		}
 	}

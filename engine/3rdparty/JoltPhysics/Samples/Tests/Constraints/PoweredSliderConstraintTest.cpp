@@ -28,7 +28,7 @@ void PoweredSliderConstraintTest::Initialize()
 	float box_size = 4.0f;
 	RefConst<Shape> box = new BoxShape(Vec3::sReplicate(0.5f * box_size));
 
-	Vec3 position(0, 10, 0);
+	RVec3 position(0, 10, 0);
 	Body &body1 = *mBodyInterface->CreateBody(BodyCreationSettings(box, position, Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING));
 	body1.SetCollisionGroup(CollisionGroup(group_filter, 0, 0));
 	mBodyInterface->AddBody(body1.GetID(), EActivation::DontActivate);
@@ -42,7 +42,7 @@ void PoweredSliderConstraintTest::Initialize()
 	mBodyInterface->AddBody(mBody2->GetID(), EActivation::Activate);
 
 	SliderConstraintSettings settings;
-	settings.SetPoint(body1, *mBody2);
+	settings.mAutoDetectPoint = true;
 	settings.SetSliderAxis(Vec3::sAxisX());
 	settings.mLimitsMin = -5.0f;
 	settings.mLimitsMax = 100.0f;

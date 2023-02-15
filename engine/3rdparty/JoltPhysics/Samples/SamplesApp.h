@@ -34,7 +34,7 @@ public:
 	virtual void			GetInitialCamera(CameraState &ioState) const override;
 
 	// Override to specify a camera pivot point and orientation (world space)
-	virtual Mat44			GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
+	virtual RMat44			GetCameraPivot(float inCameraHeading, float inCameraPitch) const override;
 
 	// Get scale factor for this world, used to boost camera speed and to scale detail of the shadows
 	virtual float			GetWorldScale() const override;
@@ -60,7 +60,7 @@ private:
 
 	// Probing the collision world
 	RefConst<Shape>			CreateProbeShape();
-	bool					CastProbe(float inProbeLength, float &outFraction, Vec3 &outPosition, BodyID &outID);
+	bool					CastProbe(float inProbeLength, float &outFraction, RVec3 &outPosition, BodyID &outID);
 
 	// Shooting an object
 	RefConst<Shape>			CreateShootObjectShape();
@@ -93,6 +93,8 @@ private:
 	JobSystem *				mJobSystem = nullptr;										// The job system that runs physics jobs
 	JobSystem *				mJobSystemValidating = nullptr;								// The job system to use when validating determinism
 	BPLayerInterfaceImpl	mBroadPhaseLayerInterface;									// The broadphase layer interface that maps object layers to broadphase layers
+	ObjectVsBroadPhaseLayerFilterImpl mObjectVsBroadPhaseLayerFilter;					// Class that filters object vs broadphase layers
+	ObjectLayerPairFilterImpl mObjectVsObjectLayerFilter;								// Class that filters object vs object layers
 	PhysicsSystem *			mPhysicsSystem = nullptr;									// The physics system that simulates the world
 	ContactListenerImpl *	mContactListener = nullptr;									// Contact listener implementation
 	PhysicsSettings			mPhysicsSettings;											// Main physics simulation settings
@@ -188,6 +190,7 @@ private:
 	bool					mTreatConvexAsSolid = true;									// For ray casts if the shape should be treated as solid or if the ray should only collide with the surface
 	bool					mReturnDeepestPoint = true;									// For shape casts, when true this will return the deepest point
 	bool					mUseShrunkenShapeAndConvexRadius = false;					// Shrink then expand the shape by the convex radius
+	bool					mDrawSupportingFace = false;								// Draw the result of GetSupportingFace
 	int						mMaxHits = 10;												// The maximum number of hits to request for a collision probe.
 
 	// Which object to shoot

@@ -28,7 +28,7 @@ JPH_NAMESPACE_BEGIN
 /// it easy to extract the rotation axis of the quaternion:
 ///
 /// q = [cos(angle / 2), sin(angle / 2) * rotation_axis]
-class [[nodiscard]] alignas(16) Quat
+class [[nodiscard]] alignas(JPH_VECTOR_ALIGNMENT) Quat
 {
 public:
 	JPH_OVERRIDE_NEW_DELETE
@@ -79,7 +79,7 @@ public:
 	JPH_INLINE Vec3				GetXYZ() const													{ return Vec3(mValue); }
 
 	/// Get the quaternion as a Vec4
-	JPH_INLINE Vec4Arg 			GetXYZW() const													{ return mValue; }
+	JPH_INLINE Vec4 			GetXYZW() const													{ return mValue; }
 
 	///@}
 	///@name Default quaternions

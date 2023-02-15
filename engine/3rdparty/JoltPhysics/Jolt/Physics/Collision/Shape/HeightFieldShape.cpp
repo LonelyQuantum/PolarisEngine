@@ -829,6 +829,37 @@ Vec3 HeightFieldShape::GetSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg 
 	return normal.Normalized();
 }
 
+void HeightFieldShape::GetSupportingFace(const SubShapeID &inSubShapeID, Vec3Arg inDirection, Vec3Arg inScale, Mat44Arg inCenterOfMassTransform, SupportingFace &outVertices) const
+{
+	// Decode ID
+	uint x, y, triangle;
+	DecodeSubShapeID(inSubShapeID, x, y, triangle);
+
+	// Fetch the triangle
+	outVertices.resize(3);
+	outVertices[0] = GetPosition(x, y);
+	Vec3 v2 = GetPosition(x + 1, y + 1);
+	if (triangle == 0)
+	{
+		outVertices[1] = GetPosition(x, y + 1);
+		outVertices[2] = v2;
+	}
+	else
+	{
+		outVertices[1] = v2;
+		outVertices[2] = GetPosition(x + 1, y);
+	}
+
+	// Flip triangle if scaled inside out
+	if (ScaleHelpers::IsInsideOut(inScale))
+		swap(outVertices[1], outVertices[2]);
+
+	// Transform to world space
+	Mat44 transform = inCenterOfMassTransform.PreScaled(inScale);
+	for (Vec3 &v : outVertices)
+		v = transform * v;
+}
+
 inline uint8 HeightFieldShape::GetEdgeFlags(uint inX, uint inY, uint inTriangle) const
 {
 	if (inTriangle == 0)
@@ -870,7 +901,7 @@ AABox HeightFieldShape::GetLocalBounds() const
 }
 
 #ifdef JPH_DEBUG_RENDERER
-void HeightFieldShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
+void HeightFieldShape::Draw(DebugRenderer *inRenderer, RMat44Arg inCenterOfMassTransform, Vec3Arg inScale, ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const
 {
 	// Don't draw anything if we don't have any collision
 	if (mHeightSamples.empty())
@@ -952,7 +983,7 @@ void HeightFieldShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTr
 	}
 
 	// Get transform including scale
-	Mat44 transform = inCenterOfMassTransform * Mat44::sScale(inScale);
+	RMat44 transform = inCenterOfMassTransform.PreScaled(inScale);
 
 	// Test if the shape is scaled inside out
 	DebugRenderer::ECullMode cull_mode = ScaleHelpers::IsInsideOut(inScale)? DebugRenderer::ECullMode::CullFrontFace : DebugRenderer::ECullMode::CullBackFace;
@@ -968,7 +999,7 @@ void HeightFieldShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTr
 	{
 		struct Visitor
 		{
-			JPH_INLINE explicit		Visitor(const HeightFieldShape *inShape, DebugRenderer *inRenderer, Mat44Arg inTransform) :
+			JPH_INLINE explicit		Visitor(const HeightFieldShape *inShape, DebugRenderer *inRenderer, RMat44Arg inTransform) :
 				mShape(inShape),
 				mRenderer(inRenderer),
 				mTransform(inTransform)
@@ -1000,8 +1031,8 @@ void HeightFieldShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTr
 				Vec3 v[] = { inV0, inV1, inV2 };
 				for (uint edge_idx = 0; edge_idx < 3; ++edge_idx)
 				{
-					Vec3 v1 = mTransform * v[edge_idx];
-					Vec3 v2 = mTransform * v[(edge_idx + 1) % 3];
+					RVec3 v1 = mTransform * v[edge_idx];
+					RVec3 v2 = mTransform * v[(edge_idx + 1) % 3];
 
 					// Draw active edge as a green arrow, other edges as grey
 					if (active_edges & (1 << edge_idx))
@@ -1013,10 +1044,10 @@ void HeightFieldShape::Draw(DebugRenderer *inRenderer, Mat44Arg inCenterOfMassTr
 
 			const HeightFieldShape *mShape;
 			DebugRenderer *			mRenderer;
-			Mat44					mTransform;
+			RMat44					mTransform;
 		};
 
-		Visitor visitor(this, inRenderer, inCenterOfMassTransform * Mat44::sScale(inScale));
+		Visitor visitor(this, inRenderer, inCenterOfMassTransform.PreScaled(inScale));
 		WalkHeightField(visitor);
 	}
 }
@@ -1278,7 +1309,7 @@ public:
 									}
 
 								#ifdef JPH_DEBUG_HEIGHT_FIELD
-									DebugRenderer::sInstance->DrawWireTriangle(v0, v1, v2, Color::sWhite);
+									DebugRenderer::sInstance->DrawWireTriangle(RVec3(v0), RVec3(v1), RVec3(v2), Color::sWhite);
 								#endif
 
 									// Call visitor

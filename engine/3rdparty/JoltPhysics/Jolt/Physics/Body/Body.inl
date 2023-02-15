@@ -5,25 +5,25 @@
 
 JPH_NAMESPACE_BEGIN
 
-Mat44 Body::GetWorldTransform() const
+RMat44 Body::GetWorldTransform() const
 {
 	JPH_ASSERT(BodyAccess::sCheckRights(BodyAccess::sPositionAccess, BodyAccess::EAccess::Read)); 
 
-	return Mat44::sRotationTranslation(mRotation, mPosition).PreTranslated(-mShape->GetCenterOfMass());
+	return RMat44::sRotationTranslation(mRotation, mPosition).PreTranslated(-mShape->GetCenterOfMass());
 }
 
-Mat44 Body::GetCenterOfMassTransform() const
+RMat44 Body::GetCenterOfMassTransform() const
 {
 	JPH_ASSERT(BodyAccess::sCheckRights(BodyAccess::sPositionAccess, BodyAccess::EAccess::Read)); 
 
-	return Mat44::sRotationTranslation(mRotation, mPosition);
+	return RMat44::sRotationTranslation(mRotation, mPosition);
 }
 
-Mat44 Body::GetInverseCenterOfMassTransform() const
+RMat44 Body::GetInverseCenterOfMassTransform() const
 {
 	JPH_ASSERT(BodyAccess::sCheckRights(BodyAccess::sPositionAccess, BodyAccess::EAccess::Read)); 
 
-	return Mat44::sInverseRotationTranslation(mRotation, mPosition);
+	return RMat44::sInverseRotationTranslation(mRotation, mPosition);
 }
 
 inline bool Body::sFindCollidingPairsCanCollide(const Body &inBody1, const Body &inBody2)
@@ -32,11 +32,8 @@ inline bool Body::sFindCollidingPairsCanCollide(const Body &inBody1, const Body 
 	// - One of the bodies must be dynamic to collide
 	// - A kinematic object can collide with a sensor
 	if ((!inBody1.IsDynamic() && !inBody2.IsDynamic()) 
-		&& !(inBody1.IsKinematic() && inBody2.IsSensor()))
-		return false;
-
-	// If both bodies are sensors, there's no collision
-	if (inBody1.IsSensor() && inBody2.IsSensor())
+		&& !(inBody1.IsKinematic() && inBody2.IsSensor())
+		&& !(inBody2.IsKinematic() && inBody1.IsSensor()))
 		return false;
 
 	// Check that body 1 is active
@@ -105,10 +102,10 @@ void Body::SubRotationStep(Vec3Arg inAngularVelocityTimesDeltaTime)
 	}
 }
 
-Vec3 Body::GetWorldSpaceSurfaceNormal(const SubShapeID &inSubShapeID, Vec3Arg inPosition) const
+Vec3 Body::GetWorldSpaceSurfaceNormal(const SubShapeID &inSubShapeID, RVec3Arg inPosition) const
 {
-	Mat44 inv_com = GetInverseCenterOfMassTransform();
-	return inv_com.Multiply3x3Transposed(mShape->GetSurfaceNormal(inSubShapeID, inv_com * inPosition)).Normalized();
+	RMat44 inv_com = GetInverseCenterOfMassTransform();
+	return inv_com.Multiply3x3Transposed(mShape->GetSurfaceNormal(inSubShapeID, Vec3(inv_com * inPosition))).Normalized();
 }
 
 Mat44 Body::GetInverseInertia() const
@@ -118,10 +115,10 @@ Mat44 Body::GetInverseInertia() const
 	return GetMotionProperties()->GetInverseInertiaForRotation(Mat44::sRotation(mRotation));
 }
 
-void Body::AddForce(Vec3Arg inForce, Vec3Arg inPosition)
+void Body::AddForce(Vec3Arg inForce, RVec3Arg inPosition)
 {
 	AddForce(inForce);
-	AddTorque((inPosition - mPosition).Cross(inForce));
+	AddTorque(Vec3(inPosition - mPosition).Cross(inForce));
 }
 
 void Body::AddImpulse(Vec3Arg inImpulse)
@@ -131,23 +128,23 @@ void Body::AddImpulse(Vec3Arg inImpulse)
 	SetLinearVelocityClamped(mMotionProperties->GetLinearVelocity() + inImpulse * mMotionProperties->GetInverseMass());
 }
 
-void Body::AddImpulse(Vec3Arg inImpulse, Vec3Arg inPosition)
+void Body::AddImpulse(Vec3Arg inImpulse, RVec3Arg inPosition)
 {
 	JPH_ASSERT(IsDynamic());
 
 	SetLinearVelocityClamped(mMotionProperties->GetLinearVelocity() + inImpulse * mMotionProperties->GetInverseMass());
 
-	SetAngularVelocityClamped(mMotionProperties->GetAngularVelocity() + GetInverseInertia() * (inPosition - mPosition).Cross(inImpulse));
+	SetAngularVelocityClamped(mMotionProperties->GetAngularVelocity() + mMotionProperties->MultiplyWorldSpaceInverseInertiaByVector(mRotation, Vec3(inPosition - mPosition).Cross(inImpulse)));
 }
 
 void Body::AddAngularImpulse(Vec3Arg inAngularImpulse)
 {
 	JPH_ASSERT(IsDynamic());
 
-	SetAngularVelocityClamped(mMotionProperties->GetAngularVelocity() + GetInverseInertia() * inAngularImpulse);
+	SetAngularVelocityClamped(mMotionProperties->GetAngularVelocity() + mMotionProperties->MultiplyWorldSpaceInverseInertiaByVector(mRotation, inAngularImpulse));
 }
 
-void Body::GetSleepTestPoints(Vec3 *outPoints) const
+void Body::GetSleepTestPoints(RVec3 *outPoints) const
 {
 	JPH_ASSERT(BodyAccess::sCheckRights(BodyAccess::sPositionAccess, BodyAccess::EAccess::Read)); 
 
@@ -183,7 +180,7 @@ void Body::GetSleepTestPoints(Vec3 *outPoints) const
 
 void Body::ResetSleepTestSpheres()
 {
-	Vec3 points[3];
+	RVec3 points[3];
 	GetSleepTestPoints(points);
 	mMotionProperties->ResetSleepTestSpheres(points);
 }

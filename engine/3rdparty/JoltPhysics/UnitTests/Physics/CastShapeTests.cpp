@@ -143,7 +143,7 @@ TEST_SUITE("CastShapeTests")
 		box.SetEmbedded();
 		ScaledShapeSettings scaled_box(&box, Vec3(10, 1, 1));
 		scaled_box.SetEmbedded();
-		Body &body2 = c.CreateBody(&scaled_box, Vec3(0, 1, 0), Quat::sRotation(Vec3::sAxisZ(), 0.5f * JPH_PI), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
+		Body &body2 = c.CreateBody(&scaled_box, RVec3(0, 1, 0), Quat::sRotation(Vec3::sAxisZ(), 0.5f * JPH_PI), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate);
 
 		// Set settings
 		ShapeCastSettings settings;
@@ -154,11 +154,11 @@ TEST_SUITE("CastShapeTests")
 		{
 			// Create shape cast
 			Ref<Shape> normal_sphere = new SphereShape(1.0f);
-			ShapeCast shape_cast { normal_sphere, Vec3::sReplicate(1.0f), Mat44::sTranslation(Vec3(0, 11, 0)), Vec3(0, 1, 0) };
+			RShapeCast shape_cast { normal_sphere, Vec3::sReplicate(1.0f), RMat44::sTranslation(RVec3(0, 11, 0)), Vec3(0, 1, 0) };
 
 			// Shape is intersecting at the start
 			AllHitCollisionCollector<CastShapeCollector> collector;
-			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, collector);
+			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, RVec3::sZero(), collector);
 			CHECK(collector.mHits.size() == 1);
 			const ShapeCastResult &result = collector.mHits.front();
 			CHECK(result.mBodyID2 == body2.GetID());
@@ -173,11 +173,11 @@ TEST_SUITE("CastShapeTests")
 		{
 			// This repeats the same test as above but uses scaling at all levels and validate that the penetration depth is still correct
 			Ref<Shape> scaled_sphere = new ScaledShape(new SphereShape(0.1f), Vec3::sReplicate(5.0f));
-			ShapeCast shape_cast { scaled_sphere, Vec3::sReplicate(2.0f), Mat44::sTranslation(Vec3(0, 11, 0)), Vec3(0, 1, 0) };
+			RShapeCast shape_cast { scaled_sphere, Vec3::sReplicate(2.0f), RMat44::sTranslation(RVec3(0, 11, 0)), Vec3(0, 1, 0) };
 
 			// Shape is intersecting at the start
 			AllHitCollisionCollector<CastShapeCollector> collector;
-			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, collector);
+			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, RVec3::sZero(), collector);
 			CHECK(collector.mHits.size() == 1);
 			const ShapeCastResult &result = collector.mHits.front();
 			CHECK(result.mBodyID2 == body2.GetID());
@@ -202,7 +202,7 @@ TEST_SUITE("CastShapeTests")
 		// Create 10 boxes that are 0.2 thick in the X axis and 4 in Y and Z, put them all next to each other on the X axis starting from X = 0 going to X = 2
 		Array<Body *> bodies;
 		for (int i = 0; i < 10; ++i)
-			bodies.push_back(&c.CreateBody(&box, Vec3(0.1f + 0.2f * i, 0, 0), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate));
+			bodies.push_back(&c.CreateBody(&box, RVec3(0.1f + 0.2f * i, 0, 0), Quat::sIdentity(), EMotionType::Static, EMotionQuality::Discrete, Layers::NON_MOVING, EActivation::DontActivate));
 
 		// Set settings
 		ShapeCastSettings settings;
@@ -215,33 +215,33 @@ TEST_SUITE("CastShapeTests")
 		{
 			// Create shape cast in X from -5 to 5
 			RefConst<Shape> sphere = new SphereShape(1.0f);
-			ShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), Mat44::sTranslation(Vec3(-5, 0, 0)), Vec3(10, 0, 0) };
+			RShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), RMat44::sTranslation(RVec3(-5, 0, 0)), Vec3(10, 0, 0) };
 
 			// We should hit the first body
 			ClosestHitCollisionCollector<CastShapeCollector> collector;
-			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, collector);
+			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, RVec3::sZero(), collector);
 			CHECK(collector.HadHit());
 			CHECK(collector.mHit.mBodyID2 == bodies.front()->GetID());
 			CHECK_APPROX_EQUAL(collector.mHit.mFraction, 4.0f / 10.0f);
-			CHECK_APPROX_EQUAL(collector.mHit.mPenetrationAxis.Normalized(), Vec3(1, 0, 0), 2.0e-3f);
+			CHECK(collector.mHit.mPenetrationAxis.Normalized().Dot(Vec3(1, 0, 0)) > Cos(DegreesToRadians(1.0f)));
 			CHECK_APPROX_EQUAL(collector.mHit.mPenetrationDepth, 0.0f);
-			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn1, Vec3(0, 0, 0), 1.0e-4f);
-			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn2, Vec3(0, 0, 0), 1.0e-4f);
+			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn1, Vec3(0, 0, 0), 2.0e-3f);
+			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn2, Vec3(0, 0, 0), 2.0e-3f);
 			CHECK(!collector.mHit.mIsBackFaceHit);
 		}
 
 		{
 			// Create shape cast in X from 5 to -5
 			RefConst<Shape> sphere = new SphereShape(1.0f);
-			ShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), Mat44::sTranslation(Vec3(5, 0, 0)), Vec3(-10, 0, 0) };
+			RShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), RMat44::sTranslation(RVec3(5, 0, 0)), Vec3(-10, 0, 0) };
 
 			// We should hit the last body
 			ClosestHitCollisionCollector<CastShapeCollector> collector;
-			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, collector);
+			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, RVec3::sZero(), collector);
 			CHECK(collector.HadHit());
 			CHECK(collector.mHit.mBodyID2 == bodies.back()->GetID());
 			CHECK_APPROX_EQUAL(collector.mHit.mFraction, 2.0f / 10.0f, 1.0e-4f);
-			CHECK_APPROX_EQUAL(collector.mHit.mPenetrationAxis.Normalized(), Vec3(-1, 0, 0), 2.0e-3f);
+			CHECK(collector.mHit.mPenetrationAxis.Normalized().Dot(Vec3(-1, 0, 0)) > Cos(DegreesToRadians(1.0f)));
 			CHECK_APPROX_EQUAL(collector.mHit.mPenetrationDepth, 0.0f);
 			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn1, Vec3(2, 0, 0), 4.0e-4f);
 			CHECK_APPROX_EQUAL(collector.mHit.mContactPointOn2, Vec3(2, 0, 0), 4.0e-4f);
@@ -251,17 +251,17 @@ TEST_SUITE("CastShapeTests")
 		{
 			// Create shape cast in X from 1.05 to 11, this should intersect with all bodies and have deepest penetration in bodies[5]
 			RefConst<Shape> sphere = new SphereShape(1.0f);
-			ShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), Mat44::sTranslation(Vec3(1.05f, 0, 0)), Vec3(10, 0, 0) };
+			RShapeCast shape_cast { sphere, Vec3::sReplicate(1.0f), RMat44::sTranslation(RVec3(1.05_r, 0, 0)), Vec3(10, 0, 0) };
 
 			// We should hit bodies[5]
 			AllHitCollisionCollector<CastShapeCollector> collector;
-			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, collector);
+			c.GetSystem()->GetNarrowPhaseQuery().CastShape(shape_cast, settings, RVec3::sZero(), collector);
 			collector.Sort();
 			CHECK(collector.mHits.size() == 10);
 			const ShapeCastResult &result = collector.mHits.front();
 			CHECK(result.mBodyID2 == bodies[5]->GetID());
 			CHECK_APPROX_EQUAL(result.mFraction, 0.0f);
-			CHECK_APPROX_EQUAL(result.mPenetrationAxis.Normalized(), Vec3(1, 0, 0), 1.0e-3f);
+			CHECK(result.mPenetrationAxis.Normalized().Dot(Vec3(1, 0, 0)) > Cos(DegreesToRadians(1.0f)));
 			CHECK_APPROX_EQUAL(result.mPenetrationDepth, 1.05f);
 			CHECK_APPROX_EQUAL(result.mContactPointOn1, Vec3(2.05f, 0, 0), 1.0e-5f); // Box starts at 1.0, center of sphere adds 0.05, radius of sphere is 1
 			CHECK_APPROX_EQUAL(result.mContactPointOn2, Vec3(1.0f, 0, 0), 1.0e-5f); // Box starts at 1.0

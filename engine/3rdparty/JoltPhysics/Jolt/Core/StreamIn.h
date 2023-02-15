@@ -30,7 +30,7 @@ public:
 	
 	/// Read a vector of primitives from the binary stream
 	template <class T, class A>
-	void				Read(vector<T, A> &outT)
+	void				Read(std::vector<T, A> &outT)
 	{
 		typename Array<T>::size_type len = outT.size(); // Initialize to previous array size, this is used for validation in the StateRecorder class
 		Read(len);
@@ -46,9 +46,9 @@ public:
 
 	/// Read a string from the binary stream (reads the number of characters and then the characters)
 	template <class Type, class Traits, class Allocator>
-	void				Read(basic_string<Type, Traits, Allocator> &outString)
+	void				Read(std::basic_string<Type, Traits, Allocator> &outString)
 	{
-		typename basic_string<Type, Traits, Allocator>::size_type len = 0;
+		typename std::basic_string<Type, Traits, Allocator>::size_type len = 0;
 		Read(len);
 		if (!IsEOF() && !IsFailed())
 		{
@@ -64,6 +64,27 @@ public:
 	{
 		ReadBytes(&outVec, 3 * sizeof(float));
 		outVec = Vec3::sFixW(outVec.mValue);
+	}
+
+	/// Read a DVec3 (don't read W)
+	void				Read(DVec3 &outVec)
+	{
+		ReadBytes(&outVec, 3 * sizeof(double));
+		outVec = DVec3::sFixW(outVec.mValue);
+	}
+
+	/// Read a DMat44 (don't read W component of translation)
+	void				Read(DMat44 &outVec)
+	{
+		Vec4 x, y, z;
+		Read(x);
+		Read(y);
+		Read(z);
+
+		DVec3 t;
+		Read(t);
+
+		outVec = DMat44(x, y, z, t);
 	}
 };
 

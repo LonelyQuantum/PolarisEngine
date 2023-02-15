@@ -27,6 +27,7 @@ There are a number of user configurable defines that turn on/off certain feature
 - JPH_DISABLE_CUSTOM_ALLOCATOR - Disables the ability to override the memory allocator.
 - JPH_FLOATING_POINT_EXCEPTIONS_ENABLED - Turns on division by zero and invalid floating point exception support in order to detect bugs (Windows only).
 - JPH_CROSS_PLATFORM_DETERMINISTIC - Turns on behavior to attempt cross platform determinism. If this is set, JPH_USE_FMADD is ignored.
+- JPH_DOUBLE_PRECISION - Compiles the library so that all positions are stored in doubles instead of floats. This makes larger worlds possible.
 - JPH_USE_SSE4_1 - Enable SSE4.1 CPU instructions (x86/x64 only)
 - JPH_USE_SSE4_2 - Enable SSE4.2 CPU instructions (x86/x64 only)
 - JPH_USE_F16C - Enable half float CPU instructions (x86/x64 only)
@@ -81,6 +82,14 @@ To implement your custom memory allocator override Allocate, Free, AlignedAlloca
 - Open the resulting project file VS2022_UWP\JoltPhysics.sln
 - Compile and run 'UnitTests'
 
+### Windows 10+ (MinGW)
+
+- Follow download instructions for MSYS2 (https://www.msys2.org/)
+- From the MSYS2 MSYS app run: pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake
+- From the MSYS2 MINGW x64 app, in the Build folder run: ./cmake_windows_mingw.sh
+- Run: cmake --build MinGW_Debug
+- Run: MinGW_Debug/UnitTests.exe
+
 ### Linux (Debian flavor, x64 or ARM64)
 
 - Install clang (apt-get install clang)
@@ -89,6 +98,20 @@ To implement your custom memory allocator override Allocate, Free, AlignedAlloca
 - Go to the Linux_Debug folder
 - Run: make -j 8 && ./UnitTests
 
+### Linux (Debian flavor, MinGW Cross Compile)
+
+- This setup can be used to run samples on Linux using wine and vkd3d. Tested on Ubuntu 22.04
+- Graphics card must support Vulkan and related drivers must be installed
+- Install mingw-w64 (apt-get install mingw-w64)
+- Run: update-alternatives --config x86_64-w64-mingw32-g++ (Select /usr/bin/x86_64-w64-mingw32-g++-posix)
+- Install cmake (apt-get install cmake)
+- Install wine64 (apt-get install wine64)
+- Run: export WINEPATH="/usr/x86_64-w64-mingw32/lib;/usr/lib/gcc/x86_64-w64-mingw32/10-posix" (change it based on your environment)
+- Run: ./cmake_linux_mingw.sh Release (Debug doesn't work)
+- Go to the MinGW_Release folder
+- Run: make -j 8 && wine UnitTests.exe
+- Run: wine Samples.exe
+
 ### Android
 
 - Install Android Studio 2020.3.1+ (https://developer.android.com/studio/)
@@ -96,7 +119,7 @@ To implement your custom memory allocator override Allocate, Free, AlignedAlloca
 - Select 'Run' / 'Run...' and 'UnitTests'
 - If the screen turns green after a while the unit tests succeeded, when red they failed (see the android log for details)
 
-### MacOS
+### macOS
 
 - Install XCode
 - Download CMake 3.23+ (https://cmake.org/download/)
@@ -113,6 +136,16 @@ Note that you can also follow the steps in the 'Linux' section if you wish to bu
 - Run: ./cmake_xcode.ios.sh
 - This will open XCode with a newly generated project
 - Build and run the project (note that this will only work in the simulator as the code signing information is not set up)
+
+## Link Errors
+
+If you receive the following error when linking:
+
+```
+/usr/bin/ld: libJolt.a: error adding symbols: file format not recognized
+```
+
+Then you have not enabled interprocedural optimizations (link time optimizations) for your own application. See the INTERPROCEDURAL_OPTIMIZATION option in CMakeLists.txt.
 
 ## Doxygen on Windows
 
