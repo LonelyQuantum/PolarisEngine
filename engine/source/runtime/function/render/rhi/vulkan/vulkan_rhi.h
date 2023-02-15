@@ -5,6 +5,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <string>
 #include <functional>
 #include <optional>
 #include <vector>

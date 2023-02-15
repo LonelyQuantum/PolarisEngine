@@ -16,10 +16,9 @@ int main(int argc, char** argv)
 	Polaris::PolarisEditor* editor = new Polaris::PolarisEditor();
 	editor->initialize(engine);
 
-	editor->clear();
-
 	editor->run();
 
+	editor->clear();
 	engine->clear();
 	engine->shutdownEngine();
 	
