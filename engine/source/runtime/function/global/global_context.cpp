@@ -4,6 +4,8 @@
 
 #include "runtime/engine.h"
 
+
+#include "runtime/function/framework/world/world_manager.h"
 #include "runtime/function/render/window_system.h"
 #include "runtime/function/render/render_system.h"
 
@@ -15,6 +17,9 @@ namespace Polaris
     void RuntimeGlobalContext::startSystems(const std::string& config_file_path)
     {
         m_logger_system = std::make_shared<LogSystem>();
+
+        m_world_manager = std::make_shared<WorldManager>();
+        m_world_manager->initialize();
 
         m_window_system = std::make_shared<WindowSystem>();
         WindowCreateInfo window_create_info;
