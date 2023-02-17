@@ -63,3 +63,4 @@ include(source/precompile/precompile.cmake)
 set_target_properties("${CODEGEN_TARGET}" PROPERTIES FOLDER "Engine" )
 
 add_dependencies(PolarisRuntime "${CODEGEN_TARGET}")
+add_dependencies("${CODEGEN_TARGET}" "PolarisParser")
