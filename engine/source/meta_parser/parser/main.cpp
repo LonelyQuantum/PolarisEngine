@@ -56,13 +56,13 @@ int parse(std::string project_input_file_name,
         project_input_file_name, source_include_file_name, include_path, sys_include, module_name, is_show_errors);
 
     std::cout << "Parsing in " << include_path << std::endl;
-    int result = parser.parse();
+    int result = parser.parse(); // Include all header files of the project and generate abstract syntax tree for them
     if (0 != result)
     {
         return result;
     }
 
-    parser.generateFiles();
+    parser.generateFiles(); // Generate reflection and serializer for specified classes and fields
 
     return 0;
 }

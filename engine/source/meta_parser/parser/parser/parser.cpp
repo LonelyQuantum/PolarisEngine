@@ -127,6 +127,7 @@ bool MetaParser::parseProject()
 
     for (auto include_item : inlcude_files)
     {
+        // Include all header files of the project in the output parser_header.h
         std::string temp_string(include_item);
         Utils::replace(temp_string, '\\', '/');
         include_file << "#include  \"" << temp_string << "\"" << std::endl;
@@ -139,7 +140,7 @@ bool MetaParser::parseProject()
 
 int MetaParser::parse(void)
 {
-    bool parse_include_ = parseProject();
+    bool parse_include_ = parseProject(); // Generate parser_header.h
     if (!parse_include_)
     {
         std::cerr << "Parsing project file error! " << std::endl;

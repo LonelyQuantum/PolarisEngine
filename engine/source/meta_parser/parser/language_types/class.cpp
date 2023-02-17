@@ -11,7 +11,7 @@ Class::Class(const Cursor& cursor, const Namespace& current_namespace) :
 {
     Utils::replaceAll(m_name, " ", "");
     Utils::replaceAll(m_name, "Polaris::", "");
-
+    
     for (auto& child : cursor.getChildren())
     {
         switch (child.getKind())

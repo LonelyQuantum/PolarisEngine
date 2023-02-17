@@ -8,7 +8,7 @@ MetaInfo::MetaInfo(const Cursor& cursor)
 {
     for (auto& child : cursor.getChildren())
     {
-
+        
         if (child.getKind() != CXCursor_AnnotateAttr)
             continue;
 
