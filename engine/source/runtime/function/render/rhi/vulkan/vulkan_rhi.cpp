@@ -58,6 +58,11 @@ namespace Polaris
         createAssetAllocator();
     }
 
+    void VulkanRHI::clear()
+    {
+
+    }
+
     /*
     * Run every frame
     */

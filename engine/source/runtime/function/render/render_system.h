@@ -20,6 +20,7 @@ namespace Polaris
 
         void initialize(RenderSystemInitInfo init_info);
         void tick();
+        void clear();
 
     private:
         std::shared_ptr<RHI> m_rhi;

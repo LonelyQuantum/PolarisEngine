@@ -35,9 +35,12 @@ namespace Polaris
 	{
 	public:
 		// override functions
-		virtual ~VulkanRHI() override final;
 		virtual void initialize(RHIInitInfo initInfo) override final;
 		virtual void tick() override final;
+
+		// destory
+		virtual ~VulkanRHI() override final;
+		void clear() override;
 
 	private:
 		void setup(RHIInitInfo initInfo);

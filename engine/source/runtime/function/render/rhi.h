@@ -22,6 +22,9 @@ namespace Polaris
         virtual void initialize(RHIInitInfo initialize_info) = 0;
         virtual void tick() = 0;
 
+        // destory
+        virtual void clear() = 0;
+
     protected:
 
     private:

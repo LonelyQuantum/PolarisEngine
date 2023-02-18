@@ -1,6 +1,7 @@
 #include "runtime/engine.h"
 
 #include "runtime/core/base/macro.h"
+#include "runtime/core/meta/reflection/reflection_register.h"
 
 #include "runtime/function/global/global_context.h"
 #include "runtime/function/render/window_system.h"
@@ -15,6 +16,7 @@ namespace Polaris
 
 	void PolarisEngine::startEngine(const std::string& config_file_path)
 	{
+		Reflection::TypeMetaRegister::metaRegister();
 		g_runtime_global_context.startSystems(config_file_path);
 		LOG_INFO("engine start");
 	}

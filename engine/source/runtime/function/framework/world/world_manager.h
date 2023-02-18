@@ -8,7 +8,6 @@
 namespace Polaris
 {
 	class Level;
-	class PhysicsScene;
 
 	/// Manage all game worlds, it should be support multiple worlds, including game world and editor world.
 	/// Currently, the implement just supports one active world and one active level
@@ -21,10 +20,19 @@ namespace Polaris
 		void clear();
 
 		void tick(float delta_time);
+		std::weak_ptr<Level> getCurrentActiveLevel() const { return m_current_active_level; }
 
 	private:
+		bool loadWorld(const std::string& world_url);
+		bool loadLevel(const std::string& level_url);
+
 		bool						m_is_world_loaded{ false };
 		std::string					m_current_world_url;
 		std::shared_ptr<WorldRes>	m_current_world_resource;
+
+		// all loaded levels, key: level url, vaule: level instance
+		std::unordered_map<std::string, std::shared_ptr<Level>> m_loaded_levels;
+		// active level, currently we just support one active level
+		std::weak_ptr<Level> m_current_active_level;
 	};
 } // namespace Polaris

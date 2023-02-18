@@ -25,4 +25,13 @@ namespace Polaris
 		// prepare render command context
 		m_rhi->tick();
 	}
+
+	void RenderSystem::clear()
+	{
+		if (m_rhi)
+		{
+			m_rhi->clear();
+		}
+		m_rhi.reset();
+	}
 }
