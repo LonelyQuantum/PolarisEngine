@@ -3,6 +3,7 @@
 #include "runtime/core/base/macro.h"
 #include "runtime/core/meta/reflection/reflection_register.h"
 
+#include "runtime/function/framework/world/world_manager.h"
 #include "runtime/function/global/global_context.h"
 #include "runtime/function/render/window_system.h"
 #include "runtime/function/render/render_system.h"
@@ -75,7 +76,7 @@ namespace Polaris
 
 	void PolarisEngine::logicalTick(float delta_time)
 	{
-
+		g_runtime_global_context.m_world_manager->tick(delta_time);
 	}
 
 	bool PolarisEngine::rendererTick()
