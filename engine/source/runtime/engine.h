@@ -2,10 +2,12 @@
 
 #include <string>
 #include <chrono>
+#include <unordered_set>
 
 namespace Polaris
 {
 	extern bool g_is_editor_mode;
+	extern std::unordered_set<std::string> g_editor_tick_component_types;
 
 	class PolarisEngine
 	{

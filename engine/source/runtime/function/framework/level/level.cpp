@@ -18,6 +18,35 @@ namespace Polaris
         m_gobjects.clear();
     }
 
+    GObjectID Level::createObject(const ObjectInstanceRes& object_instance_res)
+    {
+        GObjectID object_id = ObjectIDAllocator::alloc();
+        ASSERT(object_id != k_invalid_gobject_id);
+
+        std::shared_ptr<GObject> gobject;
+        try
+        {
+            gobject = std::make_shared<GObject>(object_id);
+        }
+        catch (const std::bad_alloc&)
+        {
+            LOG_FATAL("cannot allocate memory for new gobject");
+        }
+
+        bool is_loaded = gobject->load(object_instance_res);
+        if (is_loaded)
+        {
+            m_gobjects.emplace(object_id, gobject);
+        }
+        else
+        {
+            LOG_ERROR("loading object " + object_instance_res.m_name + " failed");
+            return k_invalid_gobject_id;
+        }
+        return object_id;
+    }
+
+
     bool Level::load(const std::string& level_res_url)
     {
         LOG_INFO("loading level: {}", level_res_url);
@@ -57,15 +86,30 @@ namespace Polaris
         return true;
     }
 
-    GObjectID Level::createObject(const ObjectInstanceRes& object_instance_res)
-    {
-        GObjectID object_id = ObjectIDAllocator::alloc();
-        return object_id;
-    }
-
     void Level::unload()
     {
         clear();
         LOG_INFO("unload level: {}", m_level_res_url);
+    }
+
+    void Level::tick(float delta_time)
+    {
+        if (!m_is_loaded)
+        {
+            return;
+        }
+
+        for (const auto& id_object_pair : m_gobjects)
+        {
+            assert(id_object_pair.second);
+            if (id_object_pair.second)
+            {
+                id_object_pair.second->tick(delta_time);
+            }
+        }
+        if (m_current_active_character && g_is_editor_mode == false)
+        {
+            m_current_active_character->tick(delta_time);
+        }
     }
 }

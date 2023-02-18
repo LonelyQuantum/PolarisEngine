@@ -31,6 +31,8 @@ namespace Polaris
         void               setName(std::string name) { m_name = name; }
         const std::string& getName() const { return m_name; }
 
+        bool hasComponent(const std::string& compenent_type_name) const;
+
     protected:
         GObjectID   m_id{ k_invalid_gobject_id };
         std::string m_name;

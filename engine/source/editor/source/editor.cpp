@@ -1,7 +1,6 @@
-#include "editor/include/editor.h"
-
-
 #include <assert.h>
+
+#include "editor//include/editor.h"
 
 #include "runtime/engine.h"
 #include "runtime/function/global/global_context.h"
