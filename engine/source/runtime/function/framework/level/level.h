@@ -26,6 +26,13 @@ namespace Polaris
 
 		void tick(float delta_time);
 
+		const std::string& getLevelResUrl() const { return m_level_res_url; }
+
+		const LevelObjectsMap& getAllGObjects() const { return m_gobjects; }
+
+		std::weak_ptr<GObject>   getGObjectByID(GObjectID go_id) const;
+		std::weak_ptr<Character> getCurrentActiveCharacter() const { return m_current_active_character; }
+
 		GObjectID createObject(const ObjectInstanceRes& object_instance_res);
 		void      deleteGObjectByID(GObjectID go_id);
 

@@ -33,6 +33,38 @@ namespace Polaris
 
         bool hasComponent(const std::string& compenent_type_name) const;
 
+        std::vector<Reflection::ReflectionPtr<Component>> getComponents() { return m_components; }
+
+        template<typename TComponent>
+        TComponent* tryGetComponent(const std::string& compenent_type_name)
+        {
+            for (auto& component : m_components)
+            {
+                if (component.getTypeName() == compenent_type_name)
+                {
+                    return static_cast<TComponent*>(component.operator->());
+                }
+            }
+
+            return nullptr;
+        }
+
+        template<typename TComponent>
+        const TComponent* tryGetComponentConst(const std::string& compenent_type_name) const
+        {
+            for (const auto& component : m_components)
+            {
+                if (component.getTypeName() == compenent_type_name)
+                {
+                    return static_cast<const TComponent*>(component.operator->());
+                }
+            }
+            return nullptr;
+        }
+
+#define tryGetComponent(COMPONENT_TYPE) tryGetComponent<COMPONENT_TYPE>(#COMPONENT_TYPE)
+#define tryGetComponentConst(COMPONENT_TYPE) tryGetComponentConst<const COMPONENT_TYPE>(#COMPONENT_TYPE)
+
     protected:
         GObjectID   m_id{ k_invalid_gobject_id };
         std::string m_name;

@@ -96,4 +96,46 @@ namespace Polaris
         return true;
     }
 
+    void WorldManager::reloadCurrentLevel()
+    {
+        auto active_level = m_current_active_level.lock();
+        if (active_level == nullptr)
+        {
+            LOG_WARN("current level is nil");
+            return;
+        }
+
+        const std::string level_url = active_level->getLevelResUrl();
+        active_level->unload();
+        m_loaded_levels.erase(level_url);
+
+        const bool is_load_success = loadLevel(level_url);
+        if (!is_load_success)
+        {
+            LOG_ERROR("load level failed {}", level_url);
+            return;
+        }
+
+        // update the active level instance
+        auto iter = m_loaded_levels.find(level_url);
+        ASSERT(iter != m_loaded_levels.end());
+
+        m_current_active_level = iter->second;
+
+        LOG_INFO("reload current evel succeed");
+    }
+
+    void WorldManager::saveCurrentLevel()
+    {
+        auto active_level = m_current_active_level.lock();
+
+        if (active_level == nullptr)
+        {
+            LOG_ERROR("save level failed, no active level");
+            return;
+        }
+
+        active_level->save();
+    }
+
 } // namespace Polaris

@@ -19,6 +19,9 @@ namespace Polaris
 		void initialize();
 		void clear();
 
+		void reloadCurrentLevel();
+		void saveCurrentLevel();
+
 		void tick(float delta_time);
 		std::weak_ptr<Level> getCurrentActiveLevel() const { return m_current_active_level; }
 

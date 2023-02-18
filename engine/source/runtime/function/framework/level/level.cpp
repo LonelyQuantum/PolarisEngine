@@ -92,6 +92,40 @@ namespace Polaris
         LOG_INFO("unload level: {}", m_level_res_url);
     }
 
+    bool Level::save()
+    {
+        LOG_INFO("saving level: {}", m_level_res_url);
+        LevelRes output_level_res;
+
+        const size_t                    object_cout = m_gobjects.size();
+        std::vector<ObjectInstanceRes>& output_objects = output_level_res.m_objects;
+        output_objects.resize(object_cout);
+
+        size_t object_index = 0;
+        for (const auto& id_object_pair : m_gobjects)
+        {
+            if (id_object_pair.second)
+            {
+                id_object_pair.second->save(output_objects[object_index]);
+                ++object_index;
+            }
+        }
+
+        const bool is_save_success =
+            g_runtime_global_context.m_asset_manager->saveAsset(output_level_res, m_level_res_url);
+
+        if (is_save_success == false)
+        {
+            LOG_ERROR("failed to save {}", m_level_res_url);
+        }
+        else
+        {
+            LOG_INFO("level save succeed");
+        }
+
+        return is_save_success;
+    }
+
     void Level::tick(float delta_time)
     {
         if (!m_is_loaded)
@@ -111,5 +145,34 @@ namespace Polaris
         {
             m_current_active_character->tick(delta_time);
         }
+    }
+
+    std::weak_ptr<GObject> Level::getGObjectByID(GObjectID go_id) const
+    {
+        auto iter = m_gobjects.find(go_id);
+        if (iter != m_gobjects.end())
+        {
+            return iter->second;
+        }
+
+        return std::weak_ptr<GObject>();
+    }
+
+    void Level::deleteGObjectByID(GObjectID go_id)
+    {
+        auto iter = m_gobjects.find(go_id);
+        if (iter != m_gobjects.end())
+        {
+            std::shared_ptr<GObject> object = iter->second;
+            if (object)
+            {
+                if (m_current_active_character && m_current_active_character->getObjectID() == object->getID())
+                {
+                    m_current_active_character->setObject(nullptr);
+                }
+            }
+        }
+
+        m_gobjects.erase(go_id);
     }
 }
