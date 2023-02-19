@@ -1,7 +1,6 @@
 #include "runtime/function/framework/component/transform/transform_component.h"
 
 #include "runtime/engine.h"
-#include "runtime/function/framework/component/rigidbody/rigidbody_component.h"
 
 namespace Polaris
 {
@@ -41,8 +40,7 @@ namespace Polaris
 
         if (m_is_dirty)
         {
-            // update transform component, dirty flag will be reset in mesh component
-            tryUpdateRigidBodyComponent();
+
         }
 
         if (g_is_editor_mode)
@@ -50,18 +48,4 @@ namespace Polaris
             m_transform_buffer[m_next_index] = m_transform;
         }
     }
-
-    void TransformComponent::tryUpdateRigidBodyComponent()
-    {
-        if (!m_parent_object.lock())
-            return;
-
-        RigidBodyComponent* rigid_body_component = m_parent_object.lock()->tryGetComponent(RigidBodyComponent);
-        if (rigid_body_component)
-        {
-            rigid_body_component->updateGlobalTransform(m_transform_buffer[m_current_index], m_is_scale_dirty);
-            m_is_scale_dirty = false;
-        }
-    }
-
 } // namespace Polaris
