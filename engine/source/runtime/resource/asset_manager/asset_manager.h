@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "runtime/core/base/macro.h"
 #include "runtime/core/meta/serializer/serializer.h"
 
