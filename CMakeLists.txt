@@ -20,5 +20,6 @@ set(POLARIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(CMAKE_INSTALL_PREFIX "${POLARIS_ROOT_DIR}/bin")
 set(BINARY_ROOT_DIR "${CMAKE_INSTALL_PREFIX}/")
 
+add_subdirectory(engine) 
 
-add_subdirectory(engine)
+# test
