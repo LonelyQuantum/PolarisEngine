@@ -132,6 +132,7 @@ namespace Polaris
         // Check the availability for required validation layers
         if (m_enableValidationLayers && !checkValidationLayerSupport()) 
         {
+            std::cout << "error" << std::endl;
             throw std::runtime_error("validation layers requested, but not available!");
         }
 
