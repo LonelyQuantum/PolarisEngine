@@ -1,8 +1,10 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
 #include "UnitTestFramework.h"
 #include <Jolt/Math/DVec3.h>
+#include <Jolt/Core/StringTools.h>
 
 TEST_SUITE("DVec3Tests")
 {
@@ -13,6 +15,13 @@ TEST_SUITE("DVec3Tests")
 		CHECK(v.GetX() == 0);
 		CHECK(v.GetY() == 0);
 		CHECK(v.GetZ() == 0);
+	}
+
+	TEST_CASE("TestDVec3Axis")
+	{
+		CHECK(DVec3::sAxisX() == DVec3(1, 0, 0));
+		CHECK(DVec3::sAxisY() == DVec3(0, 1, 0));
+		CHECK(DVec3::sAxisZ() == DVec3(0, 0, 1));
 	}
 
 	TEST_CASE("TestVec3NaN")
@@ -55,6 +64,16 @@ TEST_SUITE("DVec3Tests")
 		v.SetComponent(1, 5);
 		v.SetComponent(2, 6);
 		CHECK(v == DVec3(4, 5, 6));
+
+		// Set the components again
+		v.SetX(7);
+		v.SetY(8);
+		v.SetZ(9);
+		CHECK(v == DVec3(7, 8, 9));
+
+		// Set all components
+		v.Set(10, 11, 12);
+		CHECK(v == DVec3(10, 11, 12));
 	}
 
 	TEST_CASE("TestVec4ToDVec3")
@@ -140,8 +159,13 @@ TEST_SUITE("DVec3Tests")
 
 	TEST_CASE("TestDVec3Select")
 	{
+		const double cTrue2 = BitCast<double>(uint64(1) << 63);
+		const double cFalse2 = BitCast<double>(~uint64(0) >> 1);
+
 		CHECK(DVec3::sSelect(DVec3(1, 2, 3), DVec3(4, 5, 6), DVec3(DVec3::cTrue, DVec3::cFalse, DVec3::cTrue)) == DVec3(4, 2, 6));
 		CHECK(DVec3::sSelect(DVec3(1, 2, 3), DVec3(4, 5, 6), DVec3(DVec3::cFalse, DVec3::cTrue, DVec3::cFalse)) == DVec3(1, 5, 3));
+		CHECK(DVec3::sSelect(DVec3(1, 2, 3), DVec3(4, 5, 6), DVec3(cTrue2, cFalse2, cTrue2)) == DVec3(4, 2, 6));
+		CHECK(DVec3::sSelect(DVec3(1, 2, 3), DVec3(4, 5, 6), DVec3(cFalse2, cTrue2, cFalse2)) == DVec3(1, 5, 3));
 	}
 
 	TEST_CASE("TestDVec3BitOps")
@@ -170,6 +194,16 @@ TEST_SUITE("DVec3Tests")
 	TEST_CASE("TestDVec3Operators")
 	{
 		CHECK(-DVec3(1, 2, 3) == DVec3(-1, -2, -3));
+
+		DVec3 neg_zero = -DVec3::sZero();
+		CHECK(neg_zero == DVec3::sZero());
+
+	#ifdef JPH_CROSS_PLATFORM_DETERMINISTIC
+		// When cross platform deterministic, we want to make sure that -0 is represented as 0
+		CHECK(BitCast<uint64>(neg_zero.GetX()) == 0);
+		CHECK(BitCast<uint64>(neg_zero.GetY()) == 0);
+		CHECK(BitCast<uint64>(neg_zero.GetZ()) == 0);
+	#endif // JPH_CROSS_PLATFORM_DETERMINISTIC
 
 		CHECK(DVec3(1, 2, 3) + Vec3(4, 5, 6) == DVec3(5, 7, 9));
 		CHECK(DVec3(1, 2, 3) - Vec3(6, 5, 4) == DVec3(-5, -3, -1));
@@ -245,6 +279,29 @@ TEST_SUITE("DVec3Tests")
 		CHECK(d3 == d3_out);
 	}
 
+	TEST_CASE("TestDVec3StoreDouble3EdgeCases")
+	{
+		// Negative, zero, and large values to stress SIMD lane handling
+		{
+			DVec3 v(-1.23456789, 0.0, 1.23456789e10);
+			Double3 out;
+			v.StoreDouble3(&out);
+			CHECK(out.x == v.GetX());
+			CHECK(out.y == v.GetY());
+			CHECK(out.z == v.GetZ());
+		}
+
+		// Negative zero can expose SIMD mask bugs
+		{
+			DVec3 v(-0.0, -0.0, -0.0);
+			Double3 out;
+			v.StoreDouble3(&out);
+			CHECK(BitCast<uint64>(out.x) == BitCast<uint64>(v.GetX()));
+			CHECK(BitCast<uint64>(out.y) == BitCast<uint64>(v.GetY()));
+			CHECK(BitCast<uint64>(out.z) == BitCast<uint64>(v.GetZ()));
+		}
+	}
+
 	TEST_CASE("TestDVec3Cross")
 	{
 		CHECK(DVec3(1, 0, 0).Cross(DVec3(0, 1, 0)) == DVec3(0, 0, 1));
@@ -264,5 +321,15 @@ TEST_SUITE("DVec3Tests")
 	{
 		CHECK(DVec3(1.2345, -6.7891, 0).GetSign() == DVec3(1, -1, 1));
 		CHECK(DVec3(0, 2.3456, -7.8912).GetSign() == DVec3(1, 1, -1));
+		CHECK(DVec3(-0.0, 0.0, -0.0).GetSign() == DVec3(-1, 1, -1));
+		CHECK(DVec3(1.0, -1.0, 1.0).GetSign() == DVec3(1, -1, 1));
+		CHECK(DVec3(DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_TRUE_MIN).GetSign() == DVec3(1, -1, 1)); // Denormal number
+		CHECK(DVec3(numeric_limits<double>::infinity(), -numeric_limits<double>::infinity(), numeric_limits<double>::infinity()).GetSign() == DVec3(1, -1, 1));
+	}
+
+	TEST_CASE("TestDVec3ConvertToString")
+	{
+		DVec3 v(1, 2, 3);
+		CHECK(ConvertToString(v) == "1, 2, 3");
 	}
 }

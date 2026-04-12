@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -17,7 +18,7 @@ enum TestEnum
 
 class TestSerializableBase : public RefTarget<TestSerializableBase>
 {
-	JPH_DECLARE_SERIALIZABLE_VIRTUAL_BASE(TestSerializableBase)
+	JPH_DECLARE_SERIALIZABLE_VIRTUAL_BASE(JPH_NO_EXPORT, TestSerializableBase)
 
 public:
 	virtual						~TestSerializableBase() = default;
@@ -31,11 +32,13 @@ public:
 	double						mDouble = 0;
 	bool						mBool = false;
 	Float3						mFloat3 = { };
+	Float4						mFloat4 = { };
 	Double3						mDouble3 = { };
 	Quat						mQuat = Quat::sIdentity();
 	Vec3						mVec3 = Vec3::sZero();
 	DVec3						mDVec3 = DVec3::sZero();
 	Vec4						mVec4 = Vec4::sZero();
+	UVec4						mUVec4 = UVec4::sZero();
 	Mat44						mMat44 = Mat44::sIdentity();
 	DMat44						mDMat44 = DMat44::sIdentity();
 	JPH::String					mString;
@@ -43,7 +46,7 @@ public:
 
 class TestSerializableBase2
 {
-	JPH_DECLARE_SERIALIZABLE_VIRTUAL_BASE(TestSerializableBase2)
+	JPH_DECLARE_SERIALIZABLE_VIRTUAL_BASE(JPH_NO_EXPORT, TestSerializableBase2)
 
 public:
 	virtual						~TestSerializableBase2() = default;
@@ -53,7 +56,7 @@ public:
 
 class TestSerializable : public TestSerializableBase, public TestSerializableBase2
 {
-	JPH_DECLARE_SERIALIZABLE_VIRTUAL(TestSerializable)
+	JPH_DECLARE_SERIALIZABLE_VIRTUAL(JPH_NO_EXPORT, TestSerializable)
 
 public:
 	TestEnum					mEnum = A;
@@ -78,11 +81,13 @@ JPH_IMPLEMENT_SERIALIZABLE_VIRTUAL(TestSerializableBase)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mDouble)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mBool)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mFloat3)
+	JPH_ADD_ATTRIBUTE(TestSerializableBase, mFloat4)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mDouble3)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mQuat)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mVec3)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mDVec3)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mVec4)
+	JPH_ADD_ATTRIBUTE(TestSerializableBase, mUVec4)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mMat44)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mDMat44)
 	JPH_ADD_ATTRIBUTE(TestSerializableBase, mString)
@@ -123,10 +128,12 @@ TEST_SUITE("ObjectStreamTest")
 		test->mDouble = DBL_EPSILON;
 		test->mBool = true;
 		test->mFloat3 = Float3(9, 10, 11);
+		test->mFloat4 = Float4(11, 9, 10, 12);
 		test->mDouble3 = Double3(10, 11, 12);
 		test->mVec3 = Vec3(6, 7, 8);
 		test->mDVec3 = DVec3(7, 8, 9);
 		test->mVec4 = Vec4(9, 10, 11, 12);
+		test->mUVec4 = UVec4(12, 11, 9, 10);
 		test->mQuat = Quat::sRotation(Vec3::sAxisX(), 0.1234f);
 		test->mMat44 = Mat44::sRotationTranslation(Quat::sRotation(Vec3::sAxisY(), 0.4567f), Vec3(13, 14, 15));
 		test->mDMat44 = DMat44::sRotationTranslation(Quat::sRotation(Vec3::sAxisY(), 0.789f), DVec3(20, 21, 22));
@@ -165,11 +172,13 @@ TEST_SUITE("ObjectStreamTest")
 		CHECK(inInput->mDouble == inOutput->mDouble);
 		CHECK(inInput->mBool == inOutput->mBool);
 		CHECK(inInput->mFloat3 == inOutput->mFloat3);
+		CHECK(inInput->mFloat4 == inOutput->mFloat4);
 		CHECK(inInput->mDouble3 == inOutput->mDouble3);
 		CHECK(inInput->mQuat == inOutput->mQuat);
 		CHECK(inInput->mVec3 == inOutput->mVec3);
 		CHECK(inInput->mDVec3 == inOutput->mDVec3);
 		CHECK(inInput->mVec4 == inOutput->mVec4);
+		CHECK(inInput->mUVec4 == inOutput->mUVec4);
 		CHECK(inInput->mMat44 == inOutput->mMat44);
 		CHECK(inInput->mDMat44 == inOutput->mDMat44);
 		CHECK(inInput->mString == inOutput->mString);
@@ -208,10 +217,12 @@ TEST_SUITE("ObjectStreamTest")
 		TestSerializable *test = CreateTestObject();
 
 		stringstream stream;
-		REQUIRE(ObjectStreamOut::sWriteObject(stream, ObjectStreamOut::EStreamType::Text, *test));
+		CHECK(ObjectStreamOut::sWriteObject(stream, ObjectStreamOut::EStreamType::Text, *test));
 
 		TestSerializable *test_out = nullptr;
-		REQUIRE(ObjectStreamIn::sReadObject(stream, test_out));
+		CHECK(ObjectStreamIn::sReadObject(stream, test_out));
+		if (test_out == nullptr)
+			return;
 
 		// Check that DynamicCast returns the right offsets
 		CHECK(DynamicCast<TestSerializable>(test_out) == test_out);
@@ -231,11 +242,13 @@ TEST_SUITE("ObjectStreamTest")
 		TestSerializable *test = CreateTestObject();
 
 		stringstream stream;
-		REQUIRE(ObjectStreamOut::sWriteObject(stream, ObjectStreamOut::EStreamType::Binary, *test));
+		CHECK(ObjectStreamOut::sWriteObject(stream, ObjectStreamOut::EStreamType::Binary, *test));
 
 		TestSerializable *test_out = nullptr;
-		REQUIRE(ObjectStreamIn::sReadObject(stream, test_out));
-		
+		CHECK(ObjectStreamIn::sReadObject(stream, test_out));
+		if (test_out == nullptr)
+			return;
+
 		CompareObjects(test, test_out);
 
 		delete test;

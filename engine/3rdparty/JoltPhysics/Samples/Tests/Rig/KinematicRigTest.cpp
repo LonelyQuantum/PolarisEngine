@@ -1,7 +1,8 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/Rig/KinematicRigTest.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
@@ -10,24 +11,12 @@
 #include <Application/DebugUI.h>
 #include <Layers.h>
 #include <Utils/Log.h>
+#include <Utils/AssetStream.h>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(KinematicRigTest) 
-{ 
-	JPH_ADD_BASE_CLASS(KinematicRigTest, Test) 
-}
-
-const char *KinematicRigTest::sAnimations[] =
+JPH_IMPLEMENT_RTTI_VIRTUAL(KinematicRigTest)
 {
-	"Neutral",
-	"Walk",
-	"Sprint",
-	"Dead_Pose1",
-	"Dead_Pose2",
-	"Dead_Pose3",
-	"Dead_Pose4"
-};
-
-const char *KinematicRigTest::sAnimationName = "Walk";
+	JPH_ADD_BASE_CLASS(KinematicRigTest, Test)
+}
 
 KinematicRigTest::~KinematicRigTest()
 {
@@ -45,20 +34,23 @@ void KinematicRigTest::Initialize()
 		for (int j = i / 2; j < 10 - (i + 1) / 2; ++j)
 		{
 			RVec3 position(-2.0f + j * 0.4f + (i & 1? 0.2f : 0.0f), 0.2f + i * 0.4f, -2.0f);
-			Body &wall = *mBodyInterface->CreateBody(BodyCreationSettings(box_shape, position, Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING));
-			mBodyInterface->AddBody(wall.GetID(), EActivation::DontActivate);
+			mBodyInterface->CreateAndAddBody(BodyCreationSettings(box_shape, position, Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING), EActivation::DontActivate);
 		}
 
+	// Bar to hit head against
+	// (this should not affect the kinematic ragdoll)
+	mBodyInterface->CreateAndAddBody(BodyCreationSettings(new BoxShape(Vec3(2.0f, 0.1f, 0.1f), 0.01f), RVec3(0, 1.5f, -2.0f), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING), EActivation::DontActivate);
+
 	// Load ragdoll
-	mRagdollSettings = RagdollLoader::sLoad("Assets/Human.tof", EMotionType::Kinematic);
+	mRagdollSettings = RagdollLoader::sLoad("Human.tof", EMotionType::Kinematic);
 
 	// Create ragdoll
 	mRagdoll = mRagdollSettings->CreateRagdoll(0, 0, mPhysicsSystem);
 	mRagdoll->AddToPhysicsSystem(EActivation::Activate);
 
 	// Load animation
-	String filename = String("Assets/Human/") + sAnimationName + ".tof";
-	if (!ObjectStreamIn::sReadObject(filename.c_str(), mAnimation))
+	AssetStream stream("Human/walk.tof", std::ios::in);
+	if (!ObjectStreamIn::sReadObject(stream.Get(), mAnimation))
 		FatalError("Could not open animation");
 
 	// Initialize pose
@@ -71,7 +63,7 @@ void KinematicRigTest::Initialize()
 }
 
 void KinematicRigTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
-{ 
+{
 	// Sample previous pose and draw it (ragdoll should have achieved this position)
 	mAnimation->Sample(mTime, mPose);
 	mPose.CalculateJointMatrices();
@@ -85,18 +77,8 @@ void KinematicRigTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
 	// Sample new pose
 	mAnimation->Sample(mTime, mPose);
 	mPose.CalculateJointMatrices();
-	
-	mRagdoll->DriveToPoseUsingKinematics(mPose, inParams.mDeltaTime);
-}
 
-void KinematicRigTest::CreateSettingsMenu(DebugUI *inUI, UIElement *inSubMenu)
-{
-	inUI->CreateTextButton(inSubMenu, "Select Animation", [this, inUI]() { 
-		UIElement *animation_name = inUI->CreateMenu();
-		for (uint i = 0; i < size(sAnimations); ++i)
-			inUI->CreateTextButton(animation_name, sAnimations[i], [this, i]() { sAnimationName = sAnimations[i]; RestartTest(); });
-		inUI->ShowMenu(animation_name);
-	});
+	mRagdoll->DriveToPoseUsingKinematics(mPose, inParams.mDeltaTime);
 }
 
 void KinematicRigTest::SaveState(StateRecorder &inStream) const

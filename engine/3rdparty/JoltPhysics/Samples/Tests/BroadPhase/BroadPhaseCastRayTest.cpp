@@ -1,7 +1,8 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/BroadPhase/BroadPhaseCastRayTest.h>
 #include <Jolt/Physics/Collision/RayCast.h>
@@ -10,9 +11,9 @@
 #include <Utils/DebugRendererSP.h>
 #include <random>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(BroadPhaseCastRayTest) 
-{ 
-	JPH_ADD_BASE_CLASS(BroadPhaseCastRayTest, BroadPhaseTest) 
+JPH_IMPLEMENT_RTTI_VIRTUAL(BroadPhaseCastRayTest)
+{
+	JPH_ADD_BASE_CLASS(BroadPhaseCastRayTest, BroadPhaseTest)
 }
 
 void BroadPhaseCastRayTest::Initialize()

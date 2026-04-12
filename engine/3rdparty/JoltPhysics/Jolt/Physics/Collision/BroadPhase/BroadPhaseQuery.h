@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -22,8 +23,9 @@ using RayCastBodyCollector = CollisionCollector<BroadPhaseCastResult, CollisionC
 using CastShapeBodyCollector = CollisionCollector<BroadPhaseCastResult, CollisionCollectorTraitsCastShape>;
 using CollideShapeBodyCollector = CollisionCollector<BodyID, CollisionCollectorTraitsCollideShape>;
 
-/// Interface to the broadphase that can perform collision queries. These queries will only test the bounding box of the body to quickly determine a potential set of colliding bodies
-class BroadPhaseQuery : public NonCopyable
+/// Interface to the broadphase that can perform collision queries. These queries will only test the bounding box of the body to quickly determine a potential set of colliding bodies.
+/// The shapes of the bodies are not tested, if you want this then you should use the NarrowPhaseQuery interface.
+class JPH_EXPORT BroadPhaseQuery : public NonCopyable
 {
 public:
 	/// Virtual destructor
@@ -46,6 +48,9 @@ public:
 
 	/// Cast a box and add any hits to ioCollector
 	virtual void		CastAABox(const AABoxCast &inBox, CastShapeBodyCollector &ioCollector, const BroadPhaseLayerFilter &inBroadPhaseLayerFilter = { }, const ObjectLayerFilter &inObjectLayerFilter = { }) const = 0;
+
+	/// Get the bounding box of all objects in the broadphase
+	virtual AABox		GetBounds() const = 0;
 };
 
 JPH_NAMESPACE_END

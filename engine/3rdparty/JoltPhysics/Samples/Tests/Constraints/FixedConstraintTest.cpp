@@ -1,7 +1,8 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/Constraints/FixedConstraintTest.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
@@ -10,16 +11,16 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Layers.h>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(FixedConstraintTest) 
-{ 
-	JPH_ADD_BASE_CLASS(FixedConstraintTest, Test) 
+JPH_IMPLEMENT_RTTI_VIRTUAL(FixedConstraintTest)
+{
+	JPH_ADD_BASE_CLASS(FixedConstraintTest, Test)
 }
 
 void FixedConstraintTest::Initialize()
 {
 	// Floor
 	CreateFloor();
-		
+
 	float box_size = 4.0f;
 	RefConst<Shape> box = new BoxShape(Vec3::sReplicate(0.5f * box_size));
 
@@ -66,7 +67,7 @@ void FixedConstraintTest::Initialize()
 			settings.mAutoDetectPoint = true;
 			Ref<Constraint> c = settings.Create(*prev, segment);
 			mPhysicsSystem->AddConstraint(c);
-					
+
 			prev = &segment;
 		}
 	}

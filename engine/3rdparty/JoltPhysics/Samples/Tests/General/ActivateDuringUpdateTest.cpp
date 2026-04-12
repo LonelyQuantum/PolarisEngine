@@ -1,16 +1,17 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/General/ActivateDuringUpdateTest.h>
 #include <Layers.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(ActivateDuringUpdateTest) 
-{ 
-	JPH_ADD_BASE_CLASS(ActivateDuringUpdateTest, Test) 
+JPH_IMPLEMENT_RTTI_VIRTUAL(ActivateDuringUpdateTest)
+{
+	JPH_ADD_BASE_CLASS(ActivateDuringUpdateTest, Test)
 }
 
 void ActivateDuringUpdateTest::Initialize()
@@ -20,7 +21,7 @@ void ActivateDuringUpdateTest::Initialize()
 
 	BodyCreationSettings settings;
 	settings.SetShape(new BoxShape(Vec3::sReplicate(0.5f)));
-	settings.mMotionType = EMotionType::Dynamic; 
+	settings.mMotionType = EMotionType::Dynamic;
 	settings.mObjectLayer = Layers::MOVING;
 
 	const int cNumBodies = 3;

@@ -1,16 +1,17 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/General/ChangeObjectLayerTest.h>
 #include <Layers.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(ChangeObjectLayerTest) 
-{ 
-	JPH_ADD_BASE_CLASS(ChangeObjectLayerTest, Test) 
+JPH_IMPLEMENT_RTTI_VIRTUAL(ChangeObjectLayerTest)
+{
+	JPH_ADD_BASE_CLASS(ChangeObjectLayerTest, Test)
 }
 
 void ChangeObjectLayerTest::Initialize()
@@ -33,7 +34,7 @@ void ChangeObjectLayerTest::Initialize()
 }
 
 void ChangeObjectLayerTest::PrePhysicsUpdate(const PreUpdateParams &inParams)
-{ 
+{
 	const float cSwitchTime = 2.0f;
 
 	// Increment time

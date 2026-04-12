@@ -1,7 +1,10 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
 #include <Jolt/Jolt.h>
+
+#ifdef JPH_OBJECT_STREAM
 
 #include <Jolt/ObjectStream/ObjectStreamTextOut.h>
 #include <Jolt/Core/StringTools.h>
@@ -16,7 +19,7 @@ ObjectStreamTextOut::ObjectStreamTextOut(ostream &inStream) :
 
 void ObjectStreamTextOut::WriteDataType(EOSDataType inType)
 {
-	switch (inType) 
+	switch (inType)
 	{
 	case EOSDataType::Declare:		WriteWord("declare ");		break;
 	case EOSDataType::Object:		WriteWord("object ");		break;
@@ -33,10 +36,12 @@ void ObjectStreamTextOut::WriteDataType(EOSDataType inType)
 	case EOSDataType::T_bool:		WriteWord("bool");			break;
 	case EOSDataType::T_String:		WriteWord("string");		break;
 	case EOSDataType::T_Float3:		WriteWord("float3");		break;
+	case EOSDataType::T_Float4:		WriteWord("float4");		break;
 	case EOSDataType::T_Double3:	WriteWord("double3");		break;
 	case EOSDataType::T_Vec3:		WriteWord("vec3");			break;
 	case EOSDataType::T_DVec3:		WriteWord("dvec3");			break;
 	case EOSDataType::T_Vec4:		WriteWord("vec4");			break;
+	case EOSDataType::T_UVec4:		WriteWord("uvec4");			break;
 	case EOSDataType::T_Quat:		WriteWord("quat");			break;
 	case EOSDataType::T_Mat44:		WriteWord("mat44");			break;
 	case EOSDataType::T_DMat44:		WriteWord("dmat44");		break;
@@ -115,6 +120,17 @@ void ObjectStreamTextOut::WritePrimitiveData(const Float3 &inPrimitive)
 	WritePrimitiveData(inPrimitive.z);
 }
 
+void ObjectStreamTextOut::WritePrimitiveData(const Float4 &inPrimitive)
+{
+	WritePrimitiveData(inPrimitive.x);
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.y);
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.z);
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.w);
+}
+
 void ObjectStreamTextOut::WritePrimitiveData(const Double3 &inPrimitive)
 {
 	WritePrimitiveData(inPrimitive.x);
@@ -143,6 +159,17 @@ void ObjectStreamTextOut::WritePrimitiveData(const DVec3 &inPrimitive)
 }
 
 void ObjectStreamTextOut::WritePrimitiveData(const Vec4 &inPrimitive)
+{
+	WritePrimitiveData(inPrimitive.GetX());
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.GetY());
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.GetZ());
+	WriteChar(' ');
+	WritePrimitiveData(inPrimitive.GetW());
+}
+
+void ObjectStreamTextOut::WritePrimitiveData(const UVec4 &inPrimitive)
 {
 	WritePrimitiveData(inPrimitive.GetX());
 	WriteChar(' ');
@@ -224,3 +251,5 @@ void ObjectStreamTextOut::WriteWord(const string_view &inWord)
 }
 
 JPH_NAMESPACE_END
+
+#endif // JPH_OBJECT_STREAM

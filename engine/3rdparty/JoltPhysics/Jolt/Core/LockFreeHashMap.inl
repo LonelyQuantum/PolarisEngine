@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -11,7 +12,11 @@ JPH_NAMESPACE_BEGIN
 
 inline LFHMAllocator::~LFHMAllocator()
 {
+#if JPH_DEFAULT_ALLOCATE_ALIGNMENT < 16
 	AlignedFree(mObjectStore);
+#else
+	Free(mObjectStore);
+#endif
 }
 
 inline void LFHMAllocator::Init(uint inObjectStoreSizeBytes)
@@ -19,7 +24,11 @@ inline void LFHMAllocator::Init(uint inObjectStoreSizeBytes)
 	JPH_ASSERT(mObjectStore == nullptr);
 
 	mObjectStoreSizeBytes = inObjectStoreSizeBytes;
+#if JPH_DEFAULT_ALLOCATE_ALIGNMENT < 16
 	mObjectStore = reinterpret_cast<uint8 *>(JPH::AlignedAllocate(inObjectStoreSizeBytes, 16));
+#else
+	mObjectStore = reinterpret_cast<uint8 *>(JPH::Allocate(inObjectStoreSizeBytes));
+#endif
 }
 
 inline void LFHMAllocator::Clear()
@@ -76,10 +85,10 @@ inline T *LFHMAllocator::FromOffset(uint32 inOffset) const
 // LFHMAllocatorContext
 ///////////////////////////////////////////////////////////////////////////////////
 
-inline LFHMAllocatorContext::LFHMAllocatorContext(LFHMAllocator &inAllocator, uint32 inBlockSize) : 
-	mAllocator(inAllocator), 
-	mBlockSize(inBlockSize) 
-{ 
+inline LFHMAllocatorContext::LFHMAllocatorContext(LFHMAllocator &inAllocator, uint32 inBlockSize) :
+	mAllocator(inAllocator),
+	mBlockSize(inBlockSize)
+{
 }
 
 inline bool LFHMAllocatorContext::Allocate(uint32 inSize, uint32 inAlignment, uint32 &outWriteOffset)
@@ -88,7 +97,7 @@ inline bool LFHMAllocatorContext::Allocate(uint32 inSize, uint32 inAlignment, ui
 	JPH_ASSERT(IsPowerOf2(inAlignment));
 	uint32 alignment_mask = inAlignment - 1;
 	uint32 alignment = (inAlignment - (mBegin & alignment_mask)) & alignment_mask;
-	
+
 	// Check if we have space
 	if (mEnd - mBegin < inSize + alignment)
 	{
@@ -97,7 +106,7 @@ inline bool LFHMAllocatorContext::Allocate(uint32 inSize, uint32 inAlignment, ui
 
 		// Update alignment
 		alignment = (inAlignment - (mBegin & alignment_mask)) & alignment_mask;
-		
+
 		// Check if we have space again
 		if (mEnd - mBegin < inSize + alignment)
 			return false;
@@ -123,7 +132,11 @@ void LockFreeHashMap<Key, Value>::Init(uint32 inMaxBuckets)
 	mNumBuckets = inMaxBuckets;
 	mMaxBuckets = inMaxBuckets;
 
+#if JPH_DEFAULT_ALLOCATE_ALIGNMENT < 16
 	mBuckets = reinterpret_cast<atomic<uint32> *>(AlignedAllocate(inMaxBuckets * sizeof(atomic<uint32>), 16));
+#else
+	mBuckets = reinterpret_cast<atomic<uint32> *>(Allocate(inMaxBuckets * sizeof(atomic<uint32>)));
+#endif
 
 	Clear();
 }
@@ -131,7 +144,11 @@ void LockFreeHashMap<Key, Value>::Init(uint32 inMaxBuckets)
 template <class Key, class Value>
 LockFreeHashMap<Key, Value>::~LockFreeHashMap()
 {
+#if JPH_DEFAULT_ALLOCATE_ALIGNMENT < 16
 	AlignedFree(mBuckets);
+#else
+	Free(mBuckets);
+#endif
 }
 
 template <class Key, class Value>
@@ -162,7 +179,7 @@ void LockFreeHashMap<Key, Value>::SetNumBuckets(uint32 inNumBuckets)
 	JPH_ASSERT(inNumBuckets <= mMaxBuckets);
 	JPH_ASSERT(inNumBuckets >= 4 && IsPowerOf2(inNumBuckets));
 
-	mNumBuckets = inNumBuckets;	
+	mNumBuckets = inNumBuckets;
 }
 
 template <class Key, class Value>
@@ -188,7 +205,7 @@ inline typename LockFreeHashMap<Key, Value>::KeyValue *LockFreeHashMap<Key, Valu
 	// Construct the key/value pair
 	KeyValue *kv = mAllocator.template FromOffset<KeyValue>(write_offset);
 	JPH_ASSERT(intptr_t(kv) % alignof(KeyValue) == 0);
-#ifdef _DEBUG
+#ifdef JPH_DEBUG
 	memset(kv, 0xcd, size);
 #endif
 	kv->mKey = inKey;
@@ -279,7 +296,7 @@ typename LockFreeHashMap<Key, Value>::KeyValue &LockFreeHashMap<Key, Value>::Ite
 	JPH_ASSERT(mOffset != cInvalidHandle);
 
 	return *mMap->mAllocator.template FromOffset<KeyValue>(mOffset);
-}		
+}
 
 template <class Key, class Value>
 typename LockFreeHashMap<Key, Value>::Iterator &LockFreeHashMap<Key, Value>::Iterator::operator++ ()
@@ -310,7 +327,7 @@ typename LockFreeHashMap<Key, Value>::Iterator &LockFreeHashMap<Key, Value>::Ite
 	}
 }
 
-#ifdef _DEBUG
+#ifdef JPH_DEBUG
 
 template <class Key, class Value>
 void LockFreeHashMap<Key, Value>::TraceStats() const
@@ -338,8 +355,8 @@ void LockFreeHashMap<Key, Value>::TraceStats() const
 		histogram[min(objects_in_bucket, cMaxPerBucket - 1)]++;
 	}
 
-	Trace("max_objects_per_bucket = %d, num_buckets = %d, num_objects = %d", max_objects_per_bucket, mNumBuckets, num_objects);
-	
+	Trace("max_objects_per_bucket = %d, num_buckets = %u, num_objects = %d", max_objects_per_bucket, mNumBuckets, num_objects);
+
 	for (int i = 0; i < cMaxPerBucket; ++i)
 		if (histogram[i] != 0)
 			Trace("%d: %d", i, histogram[i]);

@@ -1,13 +1,29 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
 #include "UnitTestFramework.h"
 #include <Jolt/Math/Mat44.h>
 #include <Jolt/Math/Quat.h>
+#include <Jolt/Core/StringTools.h>
 #include <random>
 
 TEST_SUITE("QuatTests")
 {
+	TEST_CASE("TestQuatSetXYZW")
+	{
+		Quat q(0, 0, 0, 0);
+		CHECK(q == Quat(0, 0, 0, 0));
+		q.SetX(1);
+		q.SetY(2);
+		q.SetZ(3);
+		q.SetW(4);
+		CHECK(q == Quat(1, 2, 3, 4));
+
+		q.Set(4, 3, 2, 1);
+		CHECK(q == Quat(4, 3, 2, 1));
+	}
+
 	TEST_CASE("TestQuatEqual")
 	{
 		CHECK(Quat(1, 2, 3, 4) == Quat(1, 2, 3, 4));
@@ -40,7 +56,7 @@ TEST_SUITE("QuatTests")
 		CHECK(Quat(0, 0, numeric_limits<float>::quiet_NaN(), 0).IsNaN());
 		CHECK(Quat(0, 0, 0, numeric_limits<float>::quiet_NaN()).IsNaN());
 	}
-	
+
 	TEST_CASE("TestQuatOperators")
 	{
 		CHECK(-Quat(1, 2, 3, 4) == Quat(-1, -2, -3, -4));
@@ -49,6 +65,16 @@ TEST_SUITE("QuatTests")
 		CHECK(Quat(1, 2, 3, 4) * 5.0f == Quat(5, 10, 15, 20));
 		CHECK(5.0f * Quat(1, 2, 3, 4) == Quat(5, 10, 15, 20));
 		CHECK(Quat(2, 4, 6, 8) / 2.0f == Quat(1, 2, 3, 4));
+
+		Quat v(1, 2, 3, 4);
+		v += Quat(5, 6, 7, 8);
+		CHECK(v == Quat(6, 8, 10, 12));
+		v -= Quat(4, 3, 2, 1);
+		CHECK(v == Quat(2, 5, 8, 11));
+		v *= 2.0f;
+		CHECK(v == Quat(4, 10, 16, 22));
+		v /= 2.0f;
+		CHECK(v == Quat(2, 5, 8, 11));
 	}
 
 	TEST_CASE("TestQuatPerpendicular")
@@ -105,6 +131,9 @@ TEST_SUITE("QuatTests")
 			Vec3 r1 = m1 * rv;
 			Vec3 r2 = q1 * rv;
 			CHECK_APPROX_EQUAL(r1, r2, 1.0e-5f);
+
+			Vec3 r3 = q1.InverseRotate(r2);
+			CHECK_APPROX_EQUAL(r3, rv, 1.0e-5f);
 		}
 	}
 
@@ -269,6 +298,51 @@ TEST_SUITE("QuatTests")
 		}
 	}
 
+	TEST_CASE("TestQuatGetAngularVelocity")
+	{
+		constexpr float cDeltaTime = 1.0f / 60.0f;
+
+		UnitTestRandom random;
+		uniform_real_distribution<float> angle_range(-JPH_PI, JPH_PI);
+		for (int i = 0; i < 1000; ++i)
+		{
+			Vec3 axis = Vec3::sRandom(random);
+			float angle = angle_range(random);
+			Vec3 expected_angular_velocity = axis * angle / cDeltaTime;
+
+			Quat q = Quat::sRotation(axis, angle);
+
+			float max_error = 1.0e-4f * expected_angular_velocity.Length();
+
+			Vec3 angular_velocity = q.GetAngularVelocity(cDeltaTime);
+			CHECK_APPROX_EQUAL(angular_velocity, expected_angular_velocity, max_error);
+
+			angular_velocity = (-q).GetAngularVelocity(cDeltaTime);
+			CHECK_APPROX_EQUAL(angular_velocity, expected_angular_velocity, max_error);
+		}
+
+		constexpr float cSmallAngle = 1.0e-6f;
+
+		// Test very small angles
+		{
+			Quat q = Quat::sRotation(Vec3::sAxisX(), cSmallAngle);
+			Vec3 angular_velocity = q.GetAngularVelocity(cDeltaTime);
+			CHECK_APPROX_EQUAL(angular_velocity, Vec3(cSmallAngle / cDeltaTime, 0, 0), 1.0e-5f * cSmallAngle);
+		}
+
+		{
+			Quat q = Quat::sRotation(-Vec3::sAxisY(), cSmallAngle);
+			Vec3 angular_velocity = q.GetAngularVelocity(cDeltaTime);
+			CHECK_APPROX_EQUAL(angular_velocity, Vec3(0, -cSmallAngle / cDeltaTime, 0), 1.0e-5f * cSmallAngle);
+		}
+
+		{
+			Quat q = -Quat::sRotation(Vec3::sAxisZ(), -cSmallAngle);
+			Vec3 angular_velocity = q.GetAngularVelocity(cDeltaTime);
+			CHECK_APPROX_EQUAL(angular_velocity, Vec3(0, 0, -cSmallAngle / cDeltaTime), 1.0e-5f * cSmallAngle);
+		}
+	}
+
 	TEST_CASE("TestQuatInverse")
 	{
 		UnitTestRandom random;
@@ -327,6 +401,8 @@ TEST_SUITE("QuatTests")
 		CHECK_APPROX_EQUAL(twist2, q2);
 		Quat swing2 = twist2.Inversed() * swing1;
 		CHECK_APPROX_EQUAL(swing2, Quat::sIdentity());
+
+		CHECK(Quat::sZero().GetTwist(Vec3::sAxisX()) == Quat::sIdentity());
 	}
 
 	TEST_CASE("TestQuatGetRotationAngle")
@@ -432,6 +508,59 @@ TEST_SUITE("QuatTests")
 			Vec3 v1t = (q * v1).Normalized();
 			Vec3 v2t = v2.Normalized();
 			CHECK_APPROX_EQUAL(v2t, v1t, 1.0e-5f);
+		}
+	}
+
+	TEST_CASE("TestQuatConvertToString")
+	{
+		Quat v(1, 2, 3, 4);
+		CHECK(ConvertToString(v) == "1, 2, 3, 4");
+	}
+
+	TEST_CASE("TestQuatLERP")
+	{
+		Quat v1(1, 2, 3, 4);
+		Quat v2(5, 6, 7, 8);
+		CHECK(v1.LERP(v2, 0.25f) == Quat(2, 3, 4, 5));
+	}
+
+	TEST_CASE("TestQuatSLERP")
+	{
+		Quat v1 = Quat::sIdentity();
+		Quat v2 = Quat::sRotation(Vec3::sAxisX(), 0.99f * JPH_PI);
+		CHECK_APPROX_EQUAL(v1.SLERP(v2, 0.25f), Quat::sRotation(Vec3::sAxisX(), 0.25f * 0.99f * JPH_PI));
+
+		// Check that we ignore the sign
+		Quat v3 = Quat(1, 2, 3, 4).Normalized();
+		CHECK_APPROX_EQUAL(v3.SLERP(-v3, 0.5f), v3);
+	}
+
+	TEST_CASE("TestQuatMultiplyImaginary")
+	{
+		UnitTestRandom random;
+		for (int i = 0; i < 1000; ++i)
+		{
+			Vec3 imaginary = Vec3::sRandom(random);
+			Quat quat = Quat::sRandom(random);
+
+			Quat r1 = Quat::sMultiplyImaginary(imaginary, quat);
+			Quat r2 = Quat(Vec4(imaginary, 0)) * quat;
+			CHECK_APPROX_EQUAL(r1, r2);
+		}
+	}
+
+	TEST_CASE("TestQuatCompressUnitQuat")
+	{
+		UnitTestRandom random;
+		for (int i = 0; i < 1000; ++i)
+		{
+			Quat quat = Quat::sRandom(random);
+			uint32 compressed = quat.CompressUnitQuat();
+			Quat decompressed = Quat::sDecompressUnitQuat(compressed);
+			Vec3 axis;
+			float angle;
+			(quat * decompressed.Conjugated()).GetAxisAngle(axis, angle);
+			CHECK(abs(angle) < 0.009f);
 		}
 	}
 }

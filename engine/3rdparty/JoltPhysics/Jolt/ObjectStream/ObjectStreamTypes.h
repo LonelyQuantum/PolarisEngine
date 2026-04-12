@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -19,5 +20,7 @@ JPH_DECLARE_PRIMITIVE(double)
 JPH_DECLARE_PRIMITIVE(DVec3)
 JPH_DECLARE_PRIMITIVE(DMat44)
 JPH_DECLARE_PRIMITIVE(Double3)
+JPH_DECLARE_PRIMITIVE(Float4)
+JPH_DECLARE_PRIMITIVE(UVec4)
 
 #undef JPH_DECLARE_PRIMITIVE

@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -5,13 +6,15 @@
 
 #include <Jolt/Core/StaticArray.h>
 #include <Jolt/Core/LockFreeHashMap.h>
+#include <Jolt/Physics/EPhysicsUpdateError.h>
 #include <Jolt/Physics/Body/BodyPair.h>
 #include <Jolt/Physics/Collision/Shape/SubShapeIDPair.h>
 #include <Jolt/Physics/Collision/ManifoldBetweenTwoFaces.h>
-#include <Jolt/Physics/Constraints/ConstraintPart/AxisConstraintPart.h>
-#include <Jolt/Physics/Constraints/ConstraintPart/DualAxisConstraintPart.h>
+#include <Jolt/Physics/Constraints/ConstraintPart/ContactConstraintPart.h>
+#include <Jolt/Physics/StateRecorder.h>
 #include <Jolt/Core/HashCombine.h>
 #include <Jolt/Core/NonCopyable.h>
+#include <Jolt/Math/Vector.h>
 
 JPH_SUPPRESS_WARNINGS_STD_BEGIN
 #include <atomic>
@@ -22,7 +25,10 @@ JPH_NAMESPACE_BEGIN
 struct PhysicsSettings;
 class PhysicsUpdateContext;
 
-class ContactConstraintManager : public NonCopyable
+/// A contact constraint manager manages all contacts between two bodies
+///
+/// WARNING: This class is an internal part of PhysicsSystem, it has no functions that can be called by users of the library.
+class JPH_EXPORT ContactConstraintManager : public NonCopyable
 {
 public:
 	JPH_OVERRIDE_NEW_DELETE
@@ -48,21 +54,23 @@ public:
 	/// Set the function that combines the friction of two bodies and returns it
 	/// Default method is the geometric mean: sqrt(friction1 * friction2).
 	void						SetCombineFriction(CombineFunction inCombineFriction)				{ mCombineFriction = inCombineFriction; }
+	CombineFunction				GetCombineFriction() const											{ return mCombineFriction; }
 
 	/// Set the function that combines the restitution of two bodies and returns it
 	/// Default method is max(restitution1, restitution1)
 	void						SetCombineRestitution(CombineFunction inCombineRestitution)			{ mCombineRestitution = inCombineRestitution; }
+	CombineFunction				GetCombineRestitution() const										{ return mCombineRestitution; }
 
 	/// Get the max number of contact constraints that are allowed
 	uint32						GetMaxConstraints() const											{ return mMaxConstraints; }
 
 	/// Check with the listener if inBody1 and inBody2 could collide, returns false if not
-	inline ValidateResult		ValidateContactPoint(const Body &inBody1, const Body &inBody2, RVec3Arg inBaseOffset, const CollideShapeResult &inCollisionResult) const	
-	{ 
-		if (mContactListener == nullptr) 
-			return ValidateResult::AcceptAllContactsForThisBodyPair; 
+	inline ValidateResult		ValidateContactPoint(const Body &inBody1, const Body &inBody2, RVec3Arg inBaseOffset, const CollideShapeResult &inCollisionResult) const
+	{
+		if (mContactListener == nullptr)
+			return ValidateResult::AcceptAllContactsForThisBodyPair;
 
-		return mContactListener->OnContactValidate(inBody1, inBody2, inBaseOffset, inCollisionResult); 
+		return mContactListener->OnContactValidate(inBody1, inBody2, inBaseOffset, inCollisionResult);
 	}
 
 	/// Sets up the constraint buffer. Should be called before starting collision detection.
@@ -79,6 +87,7 @@ public:
 
 		uint					mNumBodyPairs = 0;													///< Total number of body pairs added using this allocator
 		uint					mNumManifolds = 0;													///< Total number of manifolds added using this allocator
+		EPhysicsUpdateError		mErrors = EPhysicsUpdateError::None;								///< Errors reported on this allocator
 	};
 
 	/// Get a new allocator context for storing contacts. Note that you should call this once and then add multiple contacts using the context.
@@ -86,8 +95,7 @@ public:
 
 	/// Check if the contact points from the previous frame are reusable and if so copy them.
 	/// When the cache was usable and the pair has been handled: outPairHandled = true.
-	/// When a contact constraint was produced: outConstraintCreated = true.
-	void						GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled, bool &outConstraintCreated);
+	void						GetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, bool &outPairHandled);
 
 	/// Handle used to keep track of the current body pair
 	using BodyPairHandle = void *;
@@ -99,16 +107,16 @@ public:
 	/// Add a contact constraint for this frame.
 	///
 	/// @param ioContactAllocator The allocator that reserves memory for the contacts
+	/// @param ioActivateAndLinkBodies When true, this function attempts to activate and link the bodies and then sets ioActivateAndLinkBodies to false so that it only happens once
 	/// @param inBodyPair The handle for the contact cache for this body pair
 	/// @param inBody1 The first body that is colliding
 	/// @param inBody2 The second body that is colliding
 	/// @param inManifold The manifold that describes the collision
-	/// @return true if a contact constraint was created (can be false in the case of a sensor)
 	///
 	/// This is using the approach described in 'Modeling and Solving Constraints' by Erin Catto presented at GDC 2009 (and later years with slight modifications).
 	/// We're using the formulas from slide 50 - 53 combined.
 	///
-	/// Euler velocity integration: 
+	/// Euler velocity integration:
 	///
 	/// v1' = v1 + M^-1 P
 	///
@@ -131,33 +139,44 @@ public:
 	/// Jacobian (for position constraint)
 	///
 	/// J = [-n, -r1 x n, n, r2 x n]
-	/// 
+	///
 	/// n = contact normal (pointing away from body 1).
 	/// p1, p2 = positions of collision on body 1 and 2.
 	/// r1, r2 = contact point relative to center of mass of body 1 and body 2 (r1 = p1 - x1, r2 = p2 - x2).
 	/// v1, v2 = (linear velocity, angular velocity): 6 vectors containing linear and angular velocity for body 1 and 2.
 	/// M = mass matrix, a diagonal matrix of the mass and inertia with diagonal [m1, I1, m2, I2].
-	bool						AddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPair, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
+	void						AddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPair, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
 
 	/// Finalizes the contact cache, the contact cache that was generated during the calls to AddContactConstraint in this update
-	/// will be used from now on to read from.
-	/// inExpectedNumBodyPairs / inExpectedNumManifolds are the amount of body pairs / manifolds found in the previous step and is used to determine the amount of buckets the contact cache hash map will use.
-	void						FinalizeContactCache(uint inExpectedNumBodyPairs, uint inExpectedNumManifolds);
+	/// will be used from now on to read from. After finalizing the contact cache, the contact removed callbacks will be called.
+	/// inExpectedNumBodyPairs / inExpectedNumManifolds are the amount of body pairs / manifolds found in the previous step and is
+	/// used to determine the amount of buckets the contact cache hash map will use in the next update.
+	void						FinalizeContactCacheAndCallContactPointRemovedCallbacks(uint inExpectedNumBodyPairs, uint inExpectedNumManifolds);
 
-	/// Notifies the listener of any contact points that were removed. Needs to be callsed after FinalizeContactCache().
-	void						ContactPointRemovedCallbacks();
+	/// Check if 2 bodies were in contact during the last simulation step. Since contacts are only detected between active bodies, at least one of the bodies must be active.
+	/// Uses the read collision cache to determine if 2 bodies are in contact.
+	bool						WereBodiesInContact(const BodyID &inBody1ID, const BodyID &inBody2ID) const;
 
 	/// Get the number of contact constraints that were found
-	uint32						GetNumConstraints() const											{ return min<uint32>(mNumConstraints, mMaxConstraints); }
+	uint32						GetNumConstraints() const											{ return min<uint32>(uint32(mNumConstraintsAndNextConstraintOffset.load(memory_order_relaxed)), mMaxConstraints); }
+
+	/// Update constraint indices to constraint offsets
+	void						ConstraintIdxToConstraintOffset(uint32 *ioConstraintIdxBegin, const uint32 *inConstraintIdxEnd) const;
 
 	/// Sort contact constraints deterministically
-	void						SortContacts(uint32 *inConstraintIdxBegin, uint32 *inConstraintIdxEnd) const;
+	void						SortContacts(uint32 *ioConstraintOffsetBegin, uint32 *inConstraintOffsetEnd) const;
 
-	/// AddContactConstraint will also setup the velocity constraints for the first sub step. For subsequent sub steps this function must be called prior to warm starting the constraint.
-	void						SetupVelocityConstraints(const uint32 *inConstraintIdxBegin, const uint32 *inConstraintIdxEnd, float inDeltaTime);
+	/// Get the affected bodies for a given constraint
+	inline void					GetAffectedBodies(uint32 inConstraintOffset, const Body *&outBody1, const Body *&outBody2) const
+	{
+		const ContactConstraintBase &constraint = *reinterpret_cast<const ContactConstraintBase *>(mConstraints + inConstraintOffset);
+		outBody1 = constraint.mBody1;
+		outBody2 = constraint.mBody2;
+	}
 
 	/// Apply last frame's impulses as an initial guess for this frame's impulses
-	void						WarmStartVelocityConstraints(const uint32 *inConstraintIdxBegin, const uint32 *inConstraintIdxEnd, float inWarmStartImpulseRatio);
+	template <class MotionPropertiesCallback>
+	void						WarmStartVelocityConstraints(const uint32 *inConstraintOffsetBegin, const uint32 *inConstraintOffsetEnd, float inWarmStartImpulseRatio, MotionPropertiesCallback &ioCallback);
 
 	/// Solve velocity constraints, when almost nothing changes this should only apply very small impulses
 	/// since we're warm starting with the total impulse applied in the last frame above.
@@ -173,7 +192,7 @@ public:
 	/// |lambda_T| <= mu |lambda_N|
 	///
 	/// And the constraint that needs to be applied is exactly the same as a non penetration constraint
-	/// except that we use a tangent instead of a normal. The tangent should point in the direction of the 
+	/// except that we use a tangent instead of a normal. The tangent should point in the direction of the
 	/// tangential velocity of the point:
 	///
 	/// J = [-T, -r1 x T, T, r2 x T]
@@ -189,10 +208,10 @@ public:
 	/// e = the restitution coefficient, v_n^- is the normal velocity prior to the collision
 	///
 	/// Restitution is only applied when v_n^- is large enough and the points are moving towards collision
-	bool						SolveVelocityConstraints(const uint32 *inConstraintIdxBegin, const uint32 *inConstraintIdxEnd);
+	bool						SolveVelocityConstraints(const uint32 *inConstraintOffsetBegin, const uint32 *inConstraintOffsetEnd);
 
 	/// Save back the lambdas to the contact cache for the next warm start
-	void						StoreAppliedImpulses(const uint32 *inConstraintIdxBegin, const uint32 *inConstraintIdxEnd) const;
+	void						StoreAppliedImpulses(const uint32 *inConstraintOffsetBegin, const uint32 *inConstraintOffsetEnd) const;
 
 	/// Solve position constraints.
 	/// This is using the approach described in 'Modeling and Solving Constraints' by Erin Catto presented at GDC 2007.
@@ -210,7 +229,7 @@ public:
 	///
 	/// beta = baumgarte stabilization factor.
 	/// dt = delta time.
-	bool						SolvePositionConstraints(const uint32 *inConstraintIdxBegin, const uint32 *inConstraintIdxEnd);
+	bool						SolvePositionConstraints(const uint32 *inConstraintOffsetBegin, const uint32 *inConstraintOffsetEnd);
 
 	/// Recycle the constraint buffer. Should be called between collision simulation steps.
 	void						RecycleConstraintBuffer();
@@ -235,10 +254,10 @@ public:
 #endif // JPH_DEBUG_RENDERER
 
 	/// Saving state for replay
-	void						SaveState(StateRecorder &inStream) const;
+	void						SaveState(StateRecorder &inStream, const StateRecorderFilter *inFilter) const;
 
 	/// Restoring state for replay. Returns false when failed.
-	bool						RestoreState(StateRecorder &inStream);
+	bool						RestoreState(StateRecorder &inStream, const StateRecorderFilter *inFilter);
 
 private:
 	/// Local space contact point, used for caching impulses
@@ -261,16 +280,16 @@ private:
 
 	static_assert(sizeof(CachedContactPoint) == 36, "Unexpected size");
 	static_assert(alignof(CachedContactPoint) == 4, "Assuming 4 byte aligned");
-	
+
 	/// A single cached manifold
 	class CachedManifold
 	{
 	public:
 		/// Calculate size in bytes needed beyond the size of the class to store inNumContactPoints
-		static int				sGetRequiredExtraSize(int inNumContactPoints)						{ return max(0, inNumContactPoints - 1) * sizeof(CachedContactPoint); }
+		static constexpr int	sGetRequiredExtraSize(int inNumContactPoints)						{ return max(0, inNumContactPoints - 1) * sizeof(CachedContactPoint); }
 
 		/// Calculate total class size needed for storing inNumContactPoints
-		static int				sGetRequiredTotalSize(int inNumContactPoints)						{ return sizeof(CachedManifold) + sGetRequiredExtraSize(inNumContactPoints); }
+		static constexpr int	sGetRequiredTotalSize(int inNumContactPoints)						{ return sizeof(CachedManifold) + sGetRequiredExtraSize(inNumContactPoints); }
 
 		/// Saving / restoring state for replay
 		void					SaveState(StateRecorder &inStream) const;
@@ -306,7 +325,7 @@ private:
 	/// Define a map that maps SubShapeIDPair -> manifold
 	using ManifoldMap = LockFreeHashMap<SubShapeIDPair, CachedManifold>;
 	using MKeyValue = ManifoldMap::KeyValue;
-	using MKVAndCreated = pair<MKeyValue *, bool>;
+	using MKVAndCreated = std::pair<MKeyValue *, bool>;
 
 	/// Start of list of contact points for a particular pair of bodies
 	class CachedBodyPair
@@ -328,7 +347,7 @@ private:
 		uint32					mFirstCachedManifold;
 	};
 
-	static_assert(sizeof(CachedBodyPair) == 28, "Unexpected size"); 
+	static_assert(sizeof(CachedBodyPair) == 28, "Unexpected size");
 	static_assert(alignof(CachedBodyPair) == 4, "Assuming 4 byte aligned");
 
 	/// Define a map that maps BodyPair -> CachedBodyPair
@@ -345,7 +364,7 @@ private:
 		/// Reset all entries from the cache
 		void					Clear();
 
-		/// Prepare cache before creating new contacts. 
+		/// Prepare cache before creating new contacts.
 		/// inExpectedNumBodyPairs / inExpectedNumManifolds are the amount of body pairs / manifolds found in the previous step and is used to determine the amount of buckets the contact cache hash map will use.
 		void					Prepare(uint inExpectedNumBodyPairs, uint inExpectedNumManifolds);
 
@@ -379,8 +398,8 @@ private:
 #endif
 
 		/// Saving / restoring state for replay
-		void					SaveState(StateRecorder &inStream) const;
-		bool					RestoreState(const ManifoldCache &inReadCache, StateRecorder &inStream);
+		void					SaveState(StateRecorder &inStream, const StateRecorderFilter *inFilter) const;
+		bool					RestoreState(const ManifoldCache &inReadCache, StateRecorder &inStream, const StateRecorderFilter *inFilter);
 
 	private:
 		/// Block size used when allocating new blocks in the contact cache
@@ -404,27 +423,57 @@ private:
 	int							mCacheWriteIdx = 0;							///< Which cache we're currently writing to
 
 	/// World space contact point, used for solving penetrations
+	template <EMotionType Type1, EMotionType Type2>
 	class WorldContactPoint
 	{
 	public:
-		/// Calculate constraint properties below
-		void					CalculateNonPenetrationConstraintProperties(float inDeltaTime, const Body &inBody1, const Body &inBody2, RVec3Arg inWorldSpacePosition1, RVec3Arg inWorldSpacePosition2, Vec3Arg inWorldSpaceNormal);
-		template <EMotionType Type1, EMotionType Type2>
-		JPH_INLINE void			CalculateFrictionAndNonPenetrationConstraintProperties(float inDeltaTime, const Body &inBody1, const Body &inBody2, Mat44Arg inInvI1, Mat44Arg inInvI2, RVec3Arg inWorldSpacePosition1, RVec3Arg inWorldSpacePosition2, Vec3Arg inWorldSpaceNormal, Vec3Arg inWorldSpaceTangent1, Vec3Arg inWorldSpaceTangent2, float inCombinedRestitution, float inCombinedFriction, float inMinVelocityForRestitution);
+		using ConstraintPart = ContactConstraintPart<Type1, Type2>;
+
+		/// Calculate constraint properties for the parts below
+		JPH_INLINE void			CalculateFrictionAndNonPenetrationConstraintProperties(float inDeltaTime, Vec3Arg inGravity, const Body &inBody1, const Body &inBody2, float inInvM1, float inInvM2, Mat44Arg inInvI1, Mat44Arg inInvI2, RVec3Arg inWorldSpacePosition1, RVec3Arg inWorldSpacePosition2, Vec3Arg inWorldSpaceNormal, Vec3Arg inWorldSpaceTangent1, Vec3Arg inWorldSpaceTangent2, const ContactSettings &inSettings, float inMinVelocityForRestitution);
 
 		/// The constraint parts
-		AxisConstraintPart		mNonPenetrationConstraint;
-		AxisConstraintPart		mFrictionConstraint1;
-		AxisConstraintPart		mFrictionConstraint2;
-		
+		ConstraintPart			mNonPenetrationConstraint;
+		ConstraintPart			mFrictionConstraint1;
+		ConstraintPart			mFrictionConstraint2;
+		// Note that this needs to be followed by data of size float, see comment at ContactConstraintPart
+
 		/// Contact cache
 		CachedContactPoint *	mContactPoint;
 	};
 
-	using WorldContactPoints = StaticArray<WorldContactPoint, MaxContactPoints>;
+	class ContactConstraintBase
+	{
+	public:
+		/// Convert the world space normal to a Vec3
+		JPH_INLINE Vec3			GetWorldSpaceNormal() const
+		{
+			return Vec3::sLoadFloat3Unsafe(mWorldSpaceNormal);
+		}
+
+		/// Get the tangents for this contact constraint
+		JPH_INLINE void			GetTangents(Vec3 &outTangent1, Vec3 &outTangent2) const
+		{
+			Vec3 ws_normal = GetWorldSpaceNormal();
+			outTangent1 = ws_normal.GetNormalizedPerpendicular();
+			outTangent2 = ws_normal.Cross(outTangent1);
+		}
+
+		Body *					mBody1;
+		Body *					mBody2;
+		uint64					mSortKey;
+		Float3					mWorldSpaceNormal;
+		float					mCombinedFriction;
+		float					mInvMass1;
+		float					mInvInertiaScale1;
+		float					mInvMass2;
+		float					mInvInertiaScale2;
+		uint32					mNumContactPoints;
+	};
 
 	/// Contact constraint class, used for solving penetrations
-	class ContactConstraint
+	template <EMotionType Type1, EMotionType Type2>
+	class ContactConstraint : public ContactConstraintBase
 	{
 	public:
 	#ifdef JPH_DEBUG_RENDERER
@@ -432,40 +481,55 @@ private:
 		void					Draw(DebugRenderer *inRenderer, ColorArg inManifoldColor) const;
 	#endif // JPH_DEBUG_RENDERER
 
-		/// Get the tangents for this contact constraint
-		JPH_INLINE void			GetTangents(Vec3 &outTangent1, Vec3 &outTangent2) const
-		{
-			outTangent1 = mWorldSpaceNormal.GetNormalizedPerpendicular();
-			outTangent2 = mWorldSpaceNormal.Cross(outTangent1);
-		}
-
-		Vec3					mWorldSpaceNormal;
-		Body *					mBody1;
-		Body *					mBody2;
-		uint64					mSortKey;
-		float					mCombinedFriction;
-		float					mCombinedRestitution;
-		WorldContactPoints		mContactPoints;
+		WorldContactPoint<Type1, Type2> mContactPoints[1];
 	};
 
-	/// Internal helper function to calculate the friction and non-penetration constraint properties. Templated to the motion type to reduce the amount of branches and calculations.
-	template <EMotionType Type1, EMotionType Type2>
-	JPH_INLINE void				TemplatedCalculateFrictionAndNonPenetrationConstraintProperties(ContactConstraint &ioConstraint, float inDeltaTime, RMat44Arg inTransformBody1, RMat44Arg inTransformBody2, const Body &inBody1, const Body &inBody2, Mat44Arg inInvI1, Mat44Arg inInvI2);
+public:
+	/// Maximum size a single constraint can take
+	static constexpr uint32		cMaxConstraintSize = sizeof(ContactConstraint<EMotionType::Dynamic, EMotionType::Dynamic>) + (MaxContactPoints - 1) * sizeof(WorldContactPoint<EMotionType::Dynamic, EMotionType::Dynamic>);
 
-	/// Internal helper function to calculate the friction and non-penetration constraint properties.
-	inline void					CalculateFrictionAndNonPenetrationConstraintProperties(ContactConstraint &ioConstraint, float inDeltaTime, RMat44Arg inTransformBody1, RMat44Arg inTransformBody2, const Body &inBody1, const Body &inBody2);
+	/// The maximum value that can be passed to Init for inMaxContactConstraints. Note you should really use a lower value, using this value will cost a lot of memory!
+	static constexpr uint		cMaxContactConstraintsLimit = ~uint(0) / cMaxConstraintSize;
+
+	/// The maximum value that can be passed to Init for inMaxBodyPairs. Note you should really use a lower value, using this value will cost a lot of memory!
+	static constexpr uint		cMaxBodyPairsLimit = ~uint(0) / sizeof(BodyPairMap::KeyValue);
+
+private:
+	/// Create a new contact constraint
+	template <EMotionType Type1, EMotionType Type2>
+	JPH_INLINE ContactConstraint<Type1, Type2> *CreateConstraint(bool &ioActivateAndLinkBodies, Body &inBody1, Body &inBody2, uint64 inSortKey, Vec3Arg inWorldSpaceNormal, const ContactSettings &inSettings, uint32 inNumContactPoints);
+
+	/// Internal helper function to add a contact constraint from the cache. Templated to the motion type to reduce the amount of branches and calculations.
+	template <EMotionType Type1, EMotionType Type2>
+	void						TemplatedGetContactsFromCache(ContactAllocator &ioContactAllocator, Body &inBody1, Body &inBody2, const CachedBodyPair &inCachedBodyPair, CachedBodyPair &outCachedBodyPair);
 
 	/// Internal helper function to add a contact constraint. Templated to the motion type to reduce the amount of branches and calculations.
 	template <EMotionType Type1, EMotionType Type2>
-	bool						TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold, Mat44Arg inInvI1, Mat44Arg inInvI2);
+	void						TemplatedAddContactConstraint(ContactAllocator &ioContactAllocator, bool &ioActivateAndLinkBodies, BodyPairHandle inBodyPairHandle, Body &inBody1, Body &inBody2, const ContactManifold &inManifold);
+
+	/// Read the velocities from the motion properties
+	template <EMotionType Type1, EMotionType Type2>
+	static JPH_INLINE void		sGetVelocities(const MotionProperties *inMotionProperties1, const MotionProperties *inMotionProperties2, Vec3 &outLinearVelocity1, Vec3 &outAngularVelocity1, Vec3 &outLinearVelocity2, Vec3 &outAngularVelocity2);
+
+	/// Apply changed velocities to the motion properties
+	template <EMotionType Type1, EMotionType Type2>
+	static JPH_INLINE void		sSetVelocities(MotionProperties *ioMotionProperties1, MotionProperties *ioMotionProperties2, Vec3Arg inLinearVelocity1, Vec3Arg inAngularVelocity1, Vec3Arg inLinearVelocity2, Vec3Arg inAngularVelocity2);
 
 	/// Internal helper function to warm start contact constraint. Templated to the motion type to reduce the amount of branches and calculations.
 	template <EMotionType Type1, EMotionType Type2>
-	JPH_INLINE static void		sWarmStartConstraint(ContactConstraint &ioConstraint, MotionProperties *ioMotionProperties1, MotionProperties *ioMotionProperties2, float inWarmStartImpulseRatio);
+	static void					sWarmStartConstraint(ContactConstraintBase &ioConstraint, MotionProperties *ioMotionProperties1, MotionProperties *ioMotionProperties2, float inWarmStartImpulseRatio);
 
-	/// Internal helper function to solve a single contact constraint. Templated to the motion type to reduce the amount of branches and calculations.
+	/// Internal helper function to solve a single velocity constraint. Templated to the motion type to reduce the amount of branches and calculations.
 	template <EMotionType Type1, EMotionType Type2>
-	JPH_INLINE static bool		sSolveVelocityConstraint(ContactConstraint &ioConstraint, MotionProperties *ioMotionProperties1, MotionProperties *ioMotionProperties2);
+	static bool					sSolveVelocityConstraint(ContactConstraintBase &ioConstraint, MotionProperties *ioMotionProperties1, MotionProperties *ioMotionProperties2);
+
+	/// Internal helper function to store lambdas applied during sSolveVelocityConstraint.
+	template <EMotionType Type1, EMotionType Type2>
+	static void					sStoreAppliedImpulses(ContactConstraintBase &ioConstraint);
+
+	/// Internal helper function to solve a single position constraint. Templated to the motion type to reduce the amount of branches and calculations.
+	template <EMotionType Type1, EMotionType Type2>
+	static bool					sSolvePositionConstraint(ContactConstraintBase &ioConstraint, Body &ioBody1, Body &ioBody2, const PhysicsSettings &inSettings);
 
 	/// The main physics settings instance
 	const PhysicsSettings &		mPhysicsSettings;
@@ -478,9 +542,10 @@ private:
 	CombineFunction				mCombineRestitution = [](const Body &inBody1, const SubShapeID &, const Body &inBody2, const SubShapeID &) { return max(inBody1.GetRestitution(), inBody2.GetRestitution()); };
 
 	/// The constraints that were added this frame
-	ContactConstraint *			mConstraints = nullptr;
+	uint8 *						mConstraints = nullptr; ///< Cast to ContactConstraint<MotionType1, MotionType2> depending on the motion types of the bodies in the constraint
+	uint32 *					mConstraintIdxToOffset = nullptr; ///< Maps from constraint index to offset in mConstraints
 	uint32						mMaxConstraints = 0;
-	atomic<uint32>				mNumConstraints { 0 };
+	atomic<uint64>				mNumConstraintsAndNextConstraintOffset { 0 }; // Lower 32 bits: number of constraints, upper 32 bits next constraint offset
 
 	/// Context used for this physics update
 	PhysicsUpdateContext *		mUpdateContext;

@@ -1,7 +1,8 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
-#include <TestFramework.h>
+#include <Samples.h>
 
 #include <Tests/Constraints/RackAndPinionConstraintTest.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
@@ -15,9 +16,9 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Layers.h>
 
-JPH_IMPLEMENT_RTTI_VIRTUAL(RackAndPinionConstraintTest) 
-{ 
-	JPH_ADD_BASE_CLASS(RackAndPinionConstraintTest, Test) 
+JPH_IMPLEMENT_RTTI_VIRTUAL(RackAndPinionConstraintTest)
+{
+	JPH_ADD_BASE_CLASS(RackAndPinionConstraintTest, Test)
 }
 
 void RackAndPinionConstraintTest::Initialize()

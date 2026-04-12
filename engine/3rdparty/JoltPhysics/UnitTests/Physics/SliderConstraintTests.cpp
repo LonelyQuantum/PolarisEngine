@@ -1,3 +1,4 @@
+// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2021 Jorrit Rouwe
 // SPDX-License-Identifier: MIT
 
@@ -6,6 +7,7 @@
 #include <Jolt/Physics/Constraints/SliderConstraint.h>
 #include <Jolt/Physics/Collision/GroupFilterTable.h>
 #include "Layers.h"
+#include "LoggingContactListener.h"
 
 TEST_SUITE("SliderConstraintTests")
 {
@@ -194,7 +196,7 @@ TEST_SUITE("SliderConstraintTests")
 		CHECK_APPROX_EQUAL(cMotorPos, body2.GetPosition(), 1.0e-4f);
 	}
 
-	// Test a box attached to a slider constraint, give it initial velocity and test that the friction provides the correct decelleration
+	// Test a box attached to a slider constraint, give it initial velocity and test that the friction provides the correct deceleration
 	TEST_CASE("TestSliderConstraintFriction")
 	{
 		const RVec3 cInitialPos(3.0f, 0, 0);
@@ -440,5 +442,145 @@ TEST_SUITE("SliderConstraintTests")
 		CHECK_APPROX_EQUAL(t1.GetColumn3(1), t2.GetColumn3(2), 1.0e-4f);
 		CHECK_APPROX_EQUAL(t1.GetColumn3(2), t2.GetColumn3(0), 1.0e-4f);
 		CHECK_APPROX_EQUAL(t1.GetTranslation(), t2.GetTranslation(), 1.0e-2f);
+	}
+
+	// Test if the slider constraint can be used to create a spring
+	TEST_CASE("TestSliderSpring")
+	{
+		// Configuration of the spring
+		const RVec3 cInitialPosition(10, 0, 0);
+		const float cFrequency = 2.0f;
+		const float cDamping = 0.1f;
+
+		for (int mode = 0; mode < 2; ++mode)
+		{
+			// Create a sphere
+			PhysicsTestContext context;
+			Body &body = context.CreateSphere(cInitialPosition, 0.5f, EMotionType::Dynamic, EMotionQuality::Discrete, Layers::MOVING);
+			body.GetMotionProperties()->SetLinearDamping(0.0f);
+
+			// Calculate stiffness and damping of spring
+			float m = 1.0f / body.GetMotionProperties()->GetInverseMass();
+			float omega = 2.0f * JPH_PI * cFrequency;
+			float k = m * Square(omega);
+			float c = 2.0f * m * cDamping * omega;
+
+			// Create spring
+			SliderConstraintSettings constraint;
+			constraint.mPoint2 = cInitialPosition;
+			if (mode == 0)
+			{
+				// First iteration use stiffness and damping
+				constraint.mLimitsSpringSettings.mMode = ESpringMode::StiffnessAndDamping;
+				constraint.mLimitsSpringSettings.mStiffness = k;
+				constraint.mLimitsSpringSettings.mDamping = c;
+			}
+			else
+			{
+				// Second iteration use frequency and damping
+				constraint.mLimitsSpringSettings.mMode = ESpringMode::FrequencyAndDamping;
+				constraint.mLimitsSpringSettings.mFrequency = cFrequency;
+				constraint.mLimitsSpringSettings.mDamping = cDamping;
+			}
+			constraint.mLimitsMin = constraint.mLimitsMax = 0.0f;
+			context.CreateConstraint<SliderConstraint>(Body::sFixedToWorld, body, constraint);
+
+			// Simulate spring
+			Real x = cInitialPosition.GetX();
+			float v = 0.0f;
+			float dt = context.GetDeltaTime();
+			for (int i = 0; i < 120; ++i)
+			{
+				// Using the equations from page 32 of Soft Constraints: Reinventing The Spring - Erin Catto - GDC 2011 for an implicit euler spring damper
+				v = (v - dt * k / m * float(x)) / (1.0f + dt * c / m + Square(dt) * k / m);
+				x += v * dt;
+
+				// Run physics simulation
+				context.SimulateSingleStep();
+
+				// Test if simulation matches prediction
+				CHECK_APPROX_EQUAL(x, body.GetPosition().GetX(), 5.0e-6_r);
+				CHECK_APPROX_EQUAL(body.GetPosition().GetY(), 0);
+				CHECK_APPROX_EQUAL(body.GetPosition().GetZ(), 0);
+			}
+		}
+	}
+
+	// Tests that constrained dynamic bodies are put in the same simulation island and that kinematic and static bodies are not
+	TEST_CASE("TestConstraintsVsSimulationIslands")
+	{
+		EMotionType motion_types[] = { EMotionType::Static, EMotionType::Kinematic, EMotionType::Dynamic };
+		for (EMotionType m1 : motion_types)
+			for (EMotionType m2 : motion_types)
+				for (EMotionType m3 : motion_types)
+				{
+					// Create 3 boxes with different motion types that are apart
+					PhysicsTestContext c;
+					Body &b1 = c.CreateBox(RVec3(0, 0, 0), Quat::sIdentity(), m1, EMotionQuality::Discrete, Layers::MOVING, Vec3::sOne(), EActivation::Activate);
+					Body &b2 = c.CreateBox(RVec3(5, 0, 0), Quat::sIdentity(), m2, EMotionQuality::Discrete, Layers::MOVING, Vec3::sOne(), EActivation::Activate);
+					Body &b3 = c.CreateBox(RVec3(10, 0, 0), Quat::sIdentity(), m3, EMotionQuality::Discrete, Layers::MOVING, Vec3::sOne(), EActivation::Activate);
+
+					// Constrain b1 to b2 and b2 to b3
+					SliderConstraintSettings s;
+					s.mAutoDetectPoint = true;
+					c.GetSystem()->AddConstraint(s.Create(b1, b2));
+					c.GetSystem()->AddConstraint(s.Create(b2, b3));
+
+					LoggingContactListener listener;
+					c.GetSystem()->SetContactListener(&listener);
+
+					// Simulate a step to make sure we properly create simulation islands with different motion types in them
+					c.SimulateSingleStep();
+
+					// Nothing should have collided
+					CHECK(listener.GetEntryCount() == 0);
+
+					auto get_island_index = [](const Body &inBody)
+					{
+						return inBody.IsStatic()? MotionProperties::cInactiveIndex : inBody.GetMotionProperties()->GetIslandIndexInternal();
+					};
+
+					uint32 island_index1 = get_island_index(b1);
+					uint32 island_index2 = get_island_index(b2);
+					uint32 island_index3 = get_island_index(b3);
+
+					if (m1 == EMotionType::Dynamic && m2 == EMotionType::Dynamic)
+					{
+						// Two dynamic bodies should always be in the same island
+						CHECK(island_index1 != MotionProperties::cInactiveIndex);
+						CHECK(island_index1 == island_index2);
+					}
+					else if (m1 == EMotionType::Dynamic || m1 == EMotionType::Kinematic)
+					{
+						// A kinematic body or a dynamic body that is touching a kinematic/static body should be in an island of its own
+						CHECK(island_index1 != MotionProperties::cInactiveIndex);
+						CHECK(island_index1 != island_index2);
+						CHECK(island_index1 != island_index3);
+					}
+					else
+					{
+						// Static bodies should not be in an island
+						CHECK(island_index1 == MotionProperties::cInactiveIndex);
+					}
+
+					if (m3 == EMotionType::Dynamic && m2 == EMotionType::Dynamic)
+					{
+						// Two dynamic bodies should always be in the same island
+						CHECK(island_index3 != MotionProperties::cInactiveIndex);
+						CHECK(island_index2 == island_index3);
+					}
+					else if (m3 == EMotionType::Dynamic || m3 == EMotionType::Kinematic)
+					{
+						// A kinematic body or a dynamic body that is touching a kinematic/static body should be in an island of its own
+						CHECK(island_index3 != MotionProperties::cInactiveIndex);
+						CHECK(island_index3 != island_index2);
+						CHECK(island_index3 != island_index1);
+					}
+					else
+					{
+						// Static bodies should not be in an island
+						CHECK(island_index3 == MotionProperties::cInactiveIndex);
+					}
+				}
 	}
 }
