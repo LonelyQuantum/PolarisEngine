@@ -49,6 +49,18 @@ namespace Polaris
         }
     }
 
+
+    std::weak_ptr<PhysicsScene> WorldManager::getCurrentActivePhysicsScene() const
+    {
+        std::shared_ptr<Level> active_level = m_current_active_level.lock();
+        if (!active_level)
+        {
+            return std::weak_ptr<PhysicsScene>();
+        }
+
+        return active_level->getPhysicsScene();
+    }
+
     bool WorldManager::loadWorld(const std::string& world_url)
     {
         LOG_INFO("loading world: {}", world_url);

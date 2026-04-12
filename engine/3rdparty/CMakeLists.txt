@@ -59,6 +59,7 @@ if(NOT TARGET Jolt)
     option(TARGET_SAMPLES "" OFF)
     option(TARGET_UNIT_TESTS "" OFF)
     option(TARGET_VIEWER "" OFF)
+    option(USE_STATIC_MSVC_RUNTIME_LIBRARY "" OFF)
 
     if(ENABLE_PHYSICS_DEBUG_RENDERER)
         option(TARGET_TEST_FRAMEWORK "" ON)
@@ -71,13 +72,11 @@ if(NOT TARGET Jolt)
     if(ENABLE_PHYSICS_DEBUG_RENDERER)
         set_target_properties(Jolt TestFramework
             PROPERTIES 
-            FOLDER ${third_party_folder}/JoltPhysics
-            MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+            FOLDER ${third_party_folder}/JoltPhysics)
     else()
         set_target_properties(Jolt
             PROPERTIES 
-            FOLDER ${third_party_folder}/JoltPhysics
-            MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+            FOLDER ${third_party_folder}/JoltPhysics)
     endif()
 
     if (MSVC)

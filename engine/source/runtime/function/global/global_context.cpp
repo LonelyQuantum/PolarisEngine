@@ -8,6 +8,7 @@
 #include "runtime/resource/config_manager/config_manager.h"
 
 #include "runtime/function/framework/world/world_manager.h"
+#include "runtime/function/physics/physics_manager.h"
 #include "runtime/function/render/window_system.h"
 #include "runtime/function/render/render_system.h"
 
@@ -24,6 +25,9 @@ namespace Polaris
         m_logger_system = std::make_shared<LogSystem>();
 
         m_asset_manager = std::make_shared<AssetManager>();
+
+        m_physics_manager = std::make_shared<PhysicsManager>();
+        m_physics_manager->initialize();
 
         m_world_manager = std::make_shared<WorldManager>();
         m_world_manager->initialize();

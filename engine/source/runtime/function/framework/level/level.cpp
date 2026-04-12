@@ -8,6 +8,7 @@
 #include "runtime/engine.h"
 #include "runtime/function/character/character.h"
 #include "runtime/function/framework/object/object.h"
+#include "runtime/function/physics/physics_manager.h"
 
 
 namespace Polaris
@@ -59,6 +60,10 @@ namespace Polaris
         {
             return false;
         }
+
+        ASSERT(g_runtime_global_context.m_physics_manager);
+        m_physics_scene = g_runtime_global_context.m_physics_manager->createPhysicsScene(level_res.m_gravity);
+
 
         for (const ObjectInstanceRes& object_instance_res : level_res.m_objects)
         {

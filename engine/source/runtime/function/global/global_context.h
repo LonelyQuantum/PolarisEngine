@@ -6,6 +6,7 @@
 namespace Polaris
 {
     class LogSystem;
+    class PhysicsManager;
     class AssetManager;
     class ConfigManager;
     class WorldManager;
@@ -28,6 +29,7 @@ namespace Polaris
         std::shared_ptr<AssetManager>   m_asset_manager;
         std::shared_ptr<ConfigManager>  m_config_manager;
         std::shared_ptr<WorldManager>   m_world_manager;
+        std::shared_ptr<PhysicsManager> m_physics_manager;
         std::shared_ptr<WindowSystem>   m_window_system;
         std::shared_ptr<RenderSystem>   m_render_system;
 
